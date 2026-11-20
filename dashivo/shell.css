@@ -1,0 +1,24 @@
+/* ===== shell: collapsible menu · accounts ===== */
+.top .burger{display:grid}
+@media(min-width:961px){body.side-hidden .app{grid-template-columns:minmax(0,1fr)}body.side-hidden .side{display:none}}
+.user-btn{display:inline-flex;align-items:center;gap:9px;height:40px;padding:0 12px 0 6px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);max-width:190px;font-weight:600;font-size:13px}
+.user-btn:hover{border-color:var(--line2)}
+.u-av{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;flex:none;background:linear-gradient(135deg,var(--btn1),var(--btn2));color:var(--on-btn);font:800 12px var(--font)}
+.u-nm,.u-nm2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.user-pop{width:300px}
+.u-list{display:flex;flex-direction:column;gap:4px}
+.u-row{display:flex;align-items:center;gap:4px;border-radius:10px;padding:2px}
+.u-row.on{background:var(--accent-soft)}
+.u-pick{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;padding:5px 6px;border-radius:8px;text-align:left;font-weight:600;font-size:13px;color:var(--text)}
+.u-pick:hover{background:var(--tint2)}
+.u-pick svg{margin-left:auto;stroke:var(--accent);fill:none;stroke-width:2}
+.u-ic{border:0;background:none;color:var(--muted);width:28px;height:28px;border-radius:8px;display:inline-grid;place-items:center;flex:none}
+.u-ic:hover{background:var(--tint2);color:var(--text)}.u-ic.danger:hover{color:var(--bad)}
+.u-ic svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.u-sep{height:1px;background:var(--line);margin:14px 0 10px}
+@media(max-width:700px){.user-btn .u-nm{display:none}.user-btn{padding:0 6px}}
+/* language flag: drawn flat, never inherit the icon-button stroke/size rules */
+.ico-btn.lang-btn svg{width:36px;height:24px;stroke:none;stroke-width:0;fill:none;border-radius:5px}
+.lang-btn{gap:10px;padding:0 12px}
+@media(max-width:560px){.top .ico-btn.lang-btn{width:auto;min-width:0;padding:0 7px}.ico-btn.lang-btn svg{width:30px;height:20px}.top{gap:6px}.top .ico-btn{width:34px}}
+@media(max-width:560px){.top>button.ico-btn:nth-last-child(3),.top>button.ico-btn:nth-last-child(4){display:none}.ttl{min-width:80px}}

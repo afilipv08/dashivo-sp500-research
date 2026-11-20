@@ -1,0 +1,103 @@
+.brand-logo .logo-white,.logo-white{display:none}
+.theme-btn{width:40px}
+.th-prev{display:grid;grid-template-columns:14px 1fr;width:70px;height:46px;border-radius:9px;overflow:hidden;flex:none;box-shadow:0 0 0 1px rgba(128,128,128,.35)}
+.th-prev .s{display:block}.th-prev .m{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:5px}.th-prev .m i{display:block;border-radius:3px}
+.ti.th-on{background:var(--accent-soft)}
+
+/* ================= DESIGN 2 · CREAM PASTEL ================= */
+html[data-theme=cream]{
+  --scheme:light;
+  --bg:#fbf3e6;--bg2:#f4ecdf;--panel:#f2eadc;--panel2:#ece3d3;--panel3:#e1d7c4;
+  --line:rgba(70,50,30,.12);--line2:rgba(70,50,30,.22);--card-line:rgba(70,50,30,.1);
+  --text:#221d18;--muted:#6c6357;--dim:#9a9183;--dim2:#c9bfae;
+  --accent:#a0306e;--accent2:#7d2255;--accent3:#c0558f;--accent-soft:rgba(160,48,110,.1);--accent-line:rgba(160,48,110,.35);--accent-rgb:160,48,110;--accent2-rgb:125,34,85;
+  --good:#5d7a26;--bad:#c23b3b;--warn:#a87a0a;--info:#3b66b0;--violet:#7b52b8;
+  --field:#e4eaf7;--track:#e1d7c4;--surf0:#f7f0e4;--surf1:#f5eee1;--surf2:#ece3d2;--surf3:#f9f3e9;--tipbg:#221d18;--tip-text:#fbf3e6;
+  --card-g1:#f3ebde;--card-g2:#efe6d6;--side1:#1d1b19;--side2:#151311;
+  --glass:rgba(246,239,227,.55);--glass-top:rgba(251,243,230,.86);--scrim:rgba(40,28,18,.45);--tour-dim:rgba(34,24,16,.62);
+  --tint1:rgba(70,50,30,.035);--tint2:rgba(70,50,30,.07);--shade:rgba(70,50,30,.08);
+  --btn1:#2c2824;--btn2:#16130f;--on-btn:#fbf3e6;--on-accent:#fff7ee;--pri-shadow:0 8px 20px rgba(30,20,10,.22);--nav-on:#2e2a27;
+  --scroll:#d3c7b2;--scroll2:#bfb299;
+  --radius:18px;--shadow:0 14px 36px rgba(60,40,20,.2);
+  --head:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+}
+html[data-theme=cream] body::before{opacity:1;background:linear-gradient(rgba(120,95,60,.075) 1px,transparent 1px) 0 0/30px 30px,linear-gradient(90deg,rgba(120,95,60,.075) 1px,transparent 1px) 0 0/30px 30px}
+html[data-theme=cream] ::selection{background:#f4bfdf;color:#221d18}
+html[data-theme=cream] .side{color:#f6efe3;--text:#f6efe3;--muted:#aaa196;--dim:#7d756a;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);--accent:#f4bfdf;--accent-soft:rgba(244,191,223,.16);--accent-line:rgba(244,191,223,.4);--accent-rgb:244,191,223;--panel3:#322e2a;--tint2:rgba(255,255,255,.06);--on-accent:#1d1b19;border-right:0}
+html[data-theme=cream] .nav a.on{color:#fff;box-shadow:none}
+html[data-theme=cream] .nav a.on::before{box-shadow:none}
+html[data-theme=cream] .ttl h1{font-weight:500;font-size:26px;letter-spacing:-.015em}
+html[data-theme=cream] .ttl h1::after{display:none}
+html[data-theme=cream] .card-h h3{font-weight:500}
+html[data-theme=cream] .btn.pri{font-weight:600;letter-spacing:0}
+html[data-theme=cream] .kpi .v,html[data-theme=cream] .donut .ctr b,html[data-theme=cream] .qcard .v,html[data-theme=cream] .wcol .wh b,html[data-theme=cream] .ring b{font-weight:600}
+html[data-theme=cream] .kpi .l,html[data-theme=cream] .up,html[data-theme=cream] .fld>label,html[data-theme=cream] th{font-weight:600}
+html[data-theme=cream] .kpis .kpi{border-color:transparent;color:#2a231d;box-shadow:0 1px 0 rgba(255,255,255,.5) inset}
+html[data-theme=cream] .kpis .kpi:nth-child(1){background:#f4bfdf}
+html[data-theme=cream] .kpis .kpi:nth-child(2){background:#a3b56a}
+html[data-theme=cream] .kpis .kpi:nth-child(3){background:#f4d96a}
+html[data-theme=cream] .kpis .kpi:nth-child(4){background:#b9cbee}
+html[data-theme=cream] .kpis .kpi:nth-child(5){background:#ecd2ac}
+html[data-theme=cream] .kpis .kpi.hot{box-shadow:0 0 0 2px #2a231d}
+html[data-theme=cream] .kpis .kpi .v{color:#2a231d!important}
+html[data-theme=cream] .kpi .l,html[data-theme=cream] .kpi .s{color:rgba(34,24,16,.7)}
+html[data-theme=cream] .kpi .s.up2{color:#2c4a0c}html[data-theme=cream] .kpi .s.down{color:#8a1f1f}
+html[data-theme=cream] .kpi .spark path{stroke:rgba(34,24,16,.5)!important}
+html[data-theme=cream] .kpi .spark stop{stop-color:#2a231d!important}
+html[data-theme=cream] .badge{color:color-mix(in srgb,var(--c) 58%,#1a130c)}
+html[data-theme=cream] .av{color:#2a1c10}
+html[data-theme=cream] .hb .r .t i{background:linear-gradient(90deg,#e8a6cb,#c0558f)}
+html[data-theme=cream] .pbar i{background:linear-gradient(90deg,#c0558f,#a0306e)}
+html[data-theme=cream] .mini button.has{background:#f6d6e8;color:#7d2255}
+html[data-theme=cream] .mini button.has::after{background:#a0306e}
+html[data-theme=cream] .g-bar span{text-shadow:none;color:#1d1914}
+html[data-theme=cream] .g-bar{background:color-mix(in srgb,var(--c) 22%,#fffaf1)}
+html[data-theme=cream] .g-bar .f{opacity:.7}
+html[data-theme=cream] .tour-tip,html[data-theme=cream] .pop,html[data-theme=cream] .modal{background:#f9f3e9}
+html[data-theme=cream] .brand-logo{box-shadow:0 8px 22px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.1)}
+
+/* ================= DESIGN 3 · DASHIVO RED (brand) ================= */
+html[data-theme=dashivo]{
+  --scheme:light;
+  --bg:#f6f4f2;--bg2:#efecea;--panel:#ffffff;--panel2:#f4f1ef;--panel3:#e9e5e2;
+  --line:rgba(45,22,24,.1);--line2:rgba(45,22,24,.2);--card-line:rgba(45,22,24,.09);
+  --text:#1f1517;--muted:#6d6265;--dim:#867c7f;--dim2:#d2cacb;
+  --accent:#c8000a;--accent2:#9e0008;--accent3:#e5484f;--accent-soft:rgba(200,0,10,.08);--accent-line:rgba(200,0,10,.34);--accent-rgb:200,0,10;--accent2-rgb:158,0,8;
+  --good:#2b8a4b;--bad:#b3261e;--warn:#b7791f;--info:#2f6fb8;--violet:#7b52b8;
+  --field:#f6f3f1;--track:#ece7e5;--surf0:#faf8f7;--surf1:#f8f5f4;--surf2:#f1edeb;--surf3:#ffffff;--tipbg:#1f1517;--tip-text:#ffffff;
+  --card-g1:#ffffff;--card-g2:#fffdfc;--side1:#cf0a14;--side2:#a60009;
+  --glass:rgba(246,244,242,.6);--glass-top:rgba(246,244,242,.9);--scrim:rgba(32,10,12,.48);--tour-dim:rgba(32,10,12,.64);
+  --tint1:rgba(45,22,24,.03);--tint2:rgba(45,22,24,.06);--shade:rgba(45,22,24,.08);
+  --btn1:#dc1721;--btn2:#a8000a;--on-btn:#ffffff;--on-accent:#ffffff;--pri-shadow:0 8px 20px rgba(200,0,10,.28);--nav-on:rgba(255,255,255,.2);
+  --scroll:#d8d0d1;--scroll2:#bfb5b7;
+  --radius:16px;--shadow:0 14px 36px rgba(70,20,24,.16);
+}
+html[data-theme=dashivo] body::before{opacity:.35}
+html[data-theme=dashivo] .side{color:#fff;--text:#fff;--muted:rgba(255,255,255,.78);--dim:rgba(255,255,255,.58);--line:rgba(255,255,255,.2);--line2:rgba(255,255,255,.34);--accent:#fff;--accent-soft:rgba(255,255,255,.16);--accent-line:rgba(255,255,255,.45);--accent-rgb:255,255,255;--panel3:rgba(255,255,255,.18);--tint2:rgba(255,255,255,.1);--on-accent:#c8000a;border-right:0}
+html[data-theme=dashivo] .nav a:hover{background:rgba(255,255,255,.1)}
+html[data-theme=dashivo] .nav a.on{color:#fff;background:rgba(255,255,255,.22);box-shadow:none}
+html[data-theme=dashivo] .nav a.on::before{background:#fff;box-shadow:none}
+html[data-theme=dashivo] .nav .cnt.hot{background:#fff;color:#c8000a}
+html[data-theme=dashivo] .brand-logo{background:transparent;box-shadow:none;padding:4px 6px 0}
+html[data-theme=dashivo] .brand-app{color:rgba(255,255,255,.85)}
+html[data-theme=dashivo] .side .logo-red{display:none}
+html[data-theme=dashivo] .side .logo-white{display:block}
+html[data-theme=dashivo] .card{box-shadow:0 1px 2px rgba(70,20,24,.06),0 6px 18px rgba(70,20,24,.04)}
+html[data-theme=dashivo] .kpis .kpi:nth-child(1),html[data-theme=dashivo] .kpis .kpi.hot{background:linear-gradient(135deg,#d90f19,#a8000a);border-color:transparent;color:#fff}
+html[data-theme=dashivo] .kpis .kpi:nth-child(1) .l,html[data-theme=dashivo] .kpis .kpi:nth-child(1) .s,html[data-theme=dashivo] .kpis .kpi.hot .l,html[data-theme=dashivo] .kpis .kpi.hot .s{color:rgba(255,255,255,.85)}
+html[data-theme=dashivo] .kpis .kpi:nth-child(1) .v,html[data-theme=dashivo] .kpis .kpi.hot .v{color:#fff!important}
+html[data-theme=dashivo] .kpis .kpi:nth-child(1) .spark path,html[data-theme=dashivo] .kpis .kpi.hot .spark path{stroke:rgba(255,255,255,.75)!important}
+html[data-theme=dashivo] .kpis .kpi:nth-child(1) .spark stop,html[data-theme=dashivo] .kpis .kpi.hot .spark stop{stop-color:#fff!important}
+html[data-theme=dashivo] .hb .r .t i{background:linear-gradient(90deg,#e5484f,#c8000a)}
+html[data-theme=dashivo] .pbar i{background:linear-gradient(90deg,#e5484f,#c8000a)}
+html[data-theme=dashivo] .badge{color:color-mix(in srgb,var(--c) 70%,#1a0d0e)}
+html[data-theme=dashivo] .av{color:#fff}
+html[data-theme=dashivo] .g-bar span{text-shadow:none;color:#1f1517}
+html[data-theme=dashivo] .g-bar{background:color-mix(in srgb,var(--c) 20%,#fff)}
+html[data-theme=dashivo] .g-bar .f{opacity:.75}
+html[data-theme=dashivo] .tour-tip,html[data-theme=dashivo] .pop,html[data-theme=dashivo] .modal{background:#fff}
+html[data-theme=dashivo] .btn.pri{letter-spacing:.01em}
+html[data-theme=dashivo] .mini button.has{background:#fde3e4;color:#9e0008}
+html[data-theme=dashivo] .mini button.has::after{background:#c8000a}
+html[data-theme=dashivo] .qcard .l,html[data-theme=cream] .qcard .l{color:color-mix(in srgb,var(--c) 58%,#1a1210)!important}
+html[data-theme=dashivo] .g-dy.off,html[data-theme=cream] .g-dy.off{color:var(--muted)}
