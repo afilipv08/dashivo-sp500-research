@@ -168,6 +168,14 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   retries failed stocks slowly, then fills price and 52-week range from one batch of daily history
   (`price_field = history 1y`). First cloud run before this: 432/503.
 
+## Making changes (keep GitHub and the local copy in sync)
+
+The local folder and `origin/main` must always end up identical, by the user's request:
+1. `git pull --rebase` first — the daily GitHub research commits new reports and `Output/top10_history.json`.
+2. Change and test locally (`python -m unittest`).
+3. Commit and `git push`; `site.yml` rebuilds and publishes the site, and a running local server is restarted.
+Only bot commits touch `Output/` and `Investitii/`, so code changes do not conflict with them.
+
 ## Top 10 history
 
 - After every research run (PC and GitHub) `top10_history.record` stores the day's Top 10 for the three presets
