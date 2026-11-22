@@ -262,3 +262,17 @@ html[data-theme=dashivo] .nav-grp.tree .nav-kids{border-left-color:rgba(255,255,
 .big-url{font:800 20px var(--head);color:var(--accent);word-break:break-all}.big-pin{font:900 34px var(--head);letter-spacing:.12em}
 @media(max-width:700px){.phone-grid{grid-template-columns:1fr}}
 a.btn{text-decoration:none}
+
+/* ===== Top 10 history ===== */
+.hist-seg button{padding:6px 14px}
+.hist-list{display:flex;flex-direction:column;gap:10px}
+.hist-day{padding:12px 14px}.hist-day.open{border-color:var(--accent-line)}
+.hist-head{display:flex;align-items:center;gap:12px;cursor:pointer}
+.hist-date{font:800 15px var(--head);text-transform:capitalize}
+.hist-avg{text-align:right}.hist-avg small{display:block;color:var(--muted);font-size:10.5px}.hist-avg b{font:800 16px var(--head)}
+.hist-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.hist-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 4px;border-radius:99px;border:1px solid var(--line2);background:var(--tint1);font-size:12px;font-weight:700;cursor:help}
+.hist-chip>b{font-size:10px;color:var(--muted);min-width:14px;text-align:center}
+.hist-chip.positive{border-color:color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
+.hist-chip.negative{border-color:color-mix(in srgb,var(--bad) 45%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.hist-day .tbl-wrap{margin-top:12px}

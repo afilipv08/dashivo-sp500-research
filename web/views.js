@@ -212,7 +212,8 @@ Views.top10 = () => {
       h('p', { id: 'filterError', class: 'negative', role: 'alert' }),
       DATA.fullUniverse ? null : h('p', { class: 'muted small', id: 'universeNote' }, 'Excel has no Lista_SP500 sheet. Thresholds apply only to available rows; load the full list to expand selection.')),
     h('div', { class: 'sectionhead' }, h('div', null, h('h2', null, 'Top 10 · price and analysts'), h('p', { class: 'muted small', id: 'method' })),
-      h('span', { class: 'badge', id: 'shown', style: { '--c': 'var(--accent)' } })),
+      h('div', { class: 'row' }, h('span', { class: 'badge', id: 'shown', style: { '--c': 'var(--accent)' } }),
+        btn('Save in history', 'plus', saveTop10, 'sm'), btn('History', 'sched', () => App.go('history'), 'sm ghost'))),
     h('div', { class: 'grid', id: 'topGrid' }));
 };
 function markPreset() {
