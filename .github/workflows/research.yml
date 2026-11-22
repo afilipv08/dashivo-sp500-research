@@ -1,9 +1,11 @@
-# Weekly SP500 research (Monday 16:00 Romania) and on demand from the dashboard's "Run research" button.
-# Runs yahoo_unificat.py, commits the new Excel reports, then rebuilds and publishes the site.
+# Daily SP500 research on weekdays at 16:00 Romania time, and on demand from the dashboard's "Run research" button.
+# Runs yahoo_unificat.py, commits the new Excel reports and the Top 10 history, then rebuilds and publishes the site.
+# GitHub cron is in UTC: 13:00 UTC is 16:00 in summer (UTC+3), 14:00 UTC in winter (UTC+2); the gate keeps the right one.
 name: Research SP500
 on:
   schedule:
-    - cron: '0 14 * * 1'
+    - cron: '0 13 * * 1-5'
+    - cron: '0 14 * * 1-5'
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,26 +24,43 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      - id: gate
+        name: Run at 16:00 Romania time only
+        run: |
+          offset=$(date +%z)
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 13 * * 1-5" ] && [ "$offset" = "+0300" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 14 * * 1-5" ] && [ "$offset" = "+0200" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
+          else echo "run=false" >> "$GITHUB_OUTPUT"; echo "Not 16:00 in Romania for this cron (offset $offset), skipping."; fi
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
         with:
           python-version: '3.12'
           cache: pip
       - run: pip install -r requirements.txt
+        if: steps.gate.outputs.run == 'true'
       - name: Run the research (all S&P 500 stocks)
+        if: steps.gate.outputs.run == 'true'
         run: python yahoo_unificat.py
       - name: Save the new reports in the repository
+        if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Output/SP500_*.xlsx Output/SP500_*.json Output/complet Investitii
-          git commit -m "Weekly research $(date +'%d.%m.%Y %H:%M')" || echo "nothing to commit"
+          git add Output/SP500_*.xlsx Output/SP500_*.json Output/complet Output/top10_history.json Investitii
+          git commit -m "Daily research $(date +'%d.%m.%Y %H:%M')" || echo "nothing to commit"
           for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
       - name: Build the site
+        if: steps.gate.outputs.run == 'true'
         run: python build_site.py --refresh
       - uses: actions/configure-pages@v5
+        if: steps.gate.outputs.run == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.gate.outputs.run == 'true'
         with:
           path: site
       - id: deploy
+        if: steps.gate.outputs.run == 'true'
         uses: actions/deploy-pages@v4
