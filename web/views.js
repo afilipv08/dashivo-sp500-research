@@ -67,6 +67,62 @@ function stockCard(r, i) {
 
 const Views = {};
 
+/* ---------- Sector analysis: whole reported S&P 500 universe, independent of active Top 10 filters ---------- */
+const SECTOR_PAGE = { open: null, sort: { key: 'count', dir: -1 } };
+const sectorStats = rows => {
+  const valid = rows.filter(r => num(r.support) && num(r.total) && r.total > 0);
+  const live = rows.map(r => num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null).filter(num);
+  const ups = rows.map(r => r.upside).filter(num), gaps = rows.map(r => r.gap).filter(num);
+  const recTotal = valid.reduce((a, r) => a + r.total, 0), buy = valid.reduce((a, r) => a + r.sb + r.buy, 0);
+  const counts = ['sb', 'buy', 'hold', 'under', 'sell'].map(k => valid.reduce((a, r) => a + (num(r[k]) ? r[k] : 0), 0));
+  return { count: rows.length, live: avgNumber(live), liveCount: live.length, support: recTotal ? buy / recTotal : null,
+    consensus: counts, analysts: recTotal, upside: avgNumber(ups), upsideCount: ups.length, gap: avgNumber(gaps), gapCount: gaps.length };
+};
+const avgNumber = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+function sectorRows() {
+  const all = universe(), names = [...new Set(all.map(r => r.sector).filter(s => s && s !== 'N/A'))];
+  return names.map(name => { const rows = all.filter(r => r.sector === name); return { name, rows, ...sectorStats(rows) }; });
+}
+function sectorConsensusTip(s) {
+  const labels = ['Strong Buy', 'Buy', 'Hold', 'Underperform', 'Sell'];
+  return tipHtml(s.name + ' · Analyst consensus', [tipRow('Analysts', nf(s.analysts)), ...labels.map((name, i) => tipRow(name, nf(s.consensus[i])))], 'Aggregated counts across all stocks with valid analyst recommendation data in this sector.');
+}
+Views.sectors = () => {
+  const sectors = sectorRows();
+  const sorted = [...sectors].sort((a, b) => {
+    const x = a[SECTOR_PAGE.sort.key], y = b[SECTOR_PAGE.sort.key];
+    return x == null ? 1 : y == null ? -1 : SECTOR_PAGE.sort.dir * (x - y) || a.name.localeCompare(b.name);
+  });
+  const choose = s => { SECTOR_PAGE.open = SECTOR_PAGE.open === s.name ? null : s.name; App.render(); };
+  const columns = [['name','Sector'],['count','Companies'],['live','Avg. live vs report'],['support','Buy + Strong Buy'],['upside','Avg. upside'],['gap','Avg. min-target proximity']];
+  const table = h('div', { class: 'tbl-wrap sector-table' }, h('table', { class: 'sp-tbl' },
+    h('thead', null, h('tr', null, columns.map(([key, title]) => h('th', { class: 'srt', onclick: () => { SECTOR_PAGE.sort = { key, dir: SECTOR_PAGE.sort.key === key ? -SECTOR_PAGE.sort.dir : key === 'name' ? 1 : -1 }; App.render(); } }, title, SECTOR_PAGE.sort.key === key ? (SECTOR_PAGE.sort.dir === 1 ? ' ↑' : ' ↓') : '')))),
+    h('tbody', null, sorted.map(s => h('tr', { class: 'sector-row' + (SECTOR_PAGE.open === s.name ? ' selected' : ''), onclick: () => choose(s) },
+      h('td', null, sectorIcon(s.name, 17), ' ', h('b', { class: 'notr' }, s.name)),
+      h('td', { class: 'notr' }, nf(s.count)),
+      h('td', { class: 'notr ' + (s.live == null ? '' : s.live >= 0 ? 'positive' : 'negative') }, s.live == null ? '—' : signedSector(s.live), h('small', { class: 'muted' }, ' · ' + s.liveCount + ' ' + tr('with live prices'))),
+      h('td', null, hoverTip(h('span', { class: 'notr' }, pctf(s.support)), () => sectorConsensusTip(s))),
+      h('td', { class: 'notr ' + (s.upside == null ? '' : s.upside >= 0 ? 'positive' : 'negative') }, pctf(s.upside)),
+      h('td', { class: 'notr' }, pctf(s.gap)))))));
+  const metricCards = card('Sector comparison', 'All reported S&P 500 companies; click a row to inspect its stocks. Live change = current quote vs the source report price, not a time-period return.', table, null, 'c12');
+  const charts = h('div', { class: 'grid mt' },
+    card('Average live change by sector', 'Average of available live quote / report price − 1', barList([...sectors].sort((a,b) => (b.live ?? -Infinity) - (a.live ?? -Infinity)).map(s => ({ label: s.name, value: (s.live ?? 0) * 100, color: s.live < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies', nf(s.count)), tipRow('Average change', signedSector(s.live)), tipRow('Live quotes included', nf(s.liveCount))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7'),
+    card('Average analyst upside', 'Simple mean of report upside to mean analyst target; not a forecast return', barList([...sectors].sort((a,b) => (b.upside ?? -Infinity) - (a.upside ?? -Infinity)).map(s => ({ label: s.name, value: (s.upside ?? 0) * 100, color: s.upside < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies with valid target', nf(s.upsideCount)), tipRow('Average upside', pctf(s.upside))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c5'));
+  const selected = sectors.find(s => s.name === SECTOR_PAGE.open);
+  const detail = selected ? card(selected.name + ' · ' + selected.count + ' companies', 'Current live price vs report price; other values come from the report. Click the sector row again to close.', h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl' },
+    h('thead', null, h('tr', null, ['Company','Live vs report','Buy + SB','Analysts','Upside','Min-target proximity'].map(x => h('th', null, x)))),
+    h('tbody', null, [...selected.rows].sort((a,b) => (b.weighted ?? -1) - (a.weighted ?? -1)).map(r => { const live = num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null;
+      return h('tr', null, h('td', { class: 'sym-cell' }, logoEl(r.symbol, 22), h('div', null, h('b', { class: 'notr' }, r.symbol), h('div', { class: 'muted small notr' }, r.company))),
+        h('td', { class: 'notr ' + (live == null ? '' : live >= 0 ? 'positive' : 'negative') }, signedSector(live)), h('td', { class: 'notr' }, pctf(r.support)), h('td', { class: 'notr' }, nf(r.total)), h('td', { class: 'notr ' + (r.upside < 0 ? 'negative' : 'positive') }, pctf(r.upside)), h('td', { class: 'notr' }, pctf(r.gap))); })))),
+    btn('Filter this sector in Top 10 & filters', 'filter', () => { UI.f.sectors = [selected.name]; saveFilters(); App.go('top10'); }, 'sm'), 'c12') : null;
+  const liveMissing = universe().length - Object.keys(LIVE.prices || {}).filter(s => universe().some(r => r.symbol === s)).length;
+  return h('div', null,
+    h('div', { class: 'banner' }, icon('alert', 18), h('b', null, 'All sectors · full SP500 universe'), h('span', null, DATA.sourceDate), h('span', { class: 'muted' }, 'Top 10 filters do not affect this comparison.')),
+    h('div', { class: 'kpis' }, kpi('Sectors', sectors.length, 'GICS sectors found in the report'), kpi('Companies', universe().length, 'in the current report'), kpi('Live quotes', Object.keys(LIVE.prices || {}).filter(s => universe().some(r => r.symbol === s)).length, LIVE.at ? tr('Updated') + ' ' + new Date(LIVE.at).toLocaleString(I18N.locale) : tr('No live quotes yet')), kpi('Missing quotes', liveMissing, 'excluded only from live-change average')),
+    metricCards, charts, detail);
+};
+const signedSector = v => num(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v) * 100, 1) + '%' : '—';
+
 /* ---------- Overview ---------- */
 Views.overview = () => {
   const sel = selection() || [], agg = aggregate(sel), top = ranked(sel), sectorsMix = {};

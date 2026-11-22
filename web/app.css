@@ -263,6 +263,10 @@ html[data-theme=dashivo] .nav-grp.tree .nav-kids{border-left-color:rgba(255,255,
 @media(max-width:700px){.phone-grid{grid-template-columns:1fr}}
 a.btn{text-decoration:none}
 
+/* ===== Sector analysis ===== */
+.sector-table tbody tr{cursor:pointer}.sector-table tbody tr:hover,.sector-table tbody tr.selected{background:var(--tint1)}
+.sector-table td small{font-size:10px;white-space:nowrap}.sector-table td:first-child{font-weight:700;white-space:nowrap}
+.sector-table .sec-ic{vertical-align:middle;margin-right:5px}
 /* ===== Top 10 history ===== */
 .hist-seg button{padding:6px 14px}
 .hist-list{display:flex;flex-direction:column;gap:10px}

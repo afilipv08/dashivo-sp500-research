@@ -176,6 +176,10 @@ The local folder and `origin/main` must always end up identical, by the user's r
 3. Commit and `git push`; `site.yml` rebuilds and publishes the site, and a running local server is restarted.
 Only bot commits touch `Output/` and `Investitii/`, so code changes do not conflict with them.
 
+## Sector analysis
+
+The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived. Selecting a row reveals constituents, and the sector filter action routes to Top 10 & filters.
+
 ## Top 10 history
 
 - After every research run (PC and GitHub) `top10_history.record` stores the day's Top 10 for the three presets
