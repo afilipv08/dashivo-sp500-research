@@ -102,6 +102,8 @@ class DashboardTests(unittest.TestCase):
             self.assertIn("const SECTIONS = { stock:", html)
             self.assertIn('https://grok.com/?q=', html)
             self.assertIn('function phoneCard', html)
+            self.assertIn('Views.history =', html)
+            self.assertIn('function saveTop10', html)
             self.assertIn('var qrcode = function', html)
             self.assertIn('Views.settings =', html)
             self.assertIn('https://chatgpt.com/?q=', html)
