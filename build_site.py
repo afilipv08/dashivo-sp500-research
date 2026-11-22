@@ -157,6 +157,8 @@ def build(refresh=False):
     if hist:
         write_json('history.json', hist)
 
+    import top10_history
+    write_json('top10_history.json', top10_history.load())
     write_json('meta.json', meta)
     (SITE / 'manifest.webmanifest').write_text(json.dumps({
         'name': 'Dashivo SP500 Research', 'short_name': 'SP500', 'start_url': './', 'scope': './', 'display': 'standalone',

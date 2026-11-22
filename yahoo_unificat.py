@@ -621,6 +621,11 @@ def main():
     path = export(rows, list_url, started, limited=bool(args.limit))
     report, _, _ = process_report(path, report_path=OUTPUT / path.name)
     ckpt.unlink(missing_ok=True)
+    try:
+        import top10_history
+        top10_history.record(report)          # the day's Top 10 per preset, for the history page
+    except Exception as exc:
+        print(f'Istoric Top 10: EROARE {exc}')
     preview(rows)
     valid = sum(r['distance'] is not None for r in rows)
     print(f'\nExcel salvat: {report}\nExport complet: {path}\nCotatii utilizabile: {valid}/{len(rows)}')

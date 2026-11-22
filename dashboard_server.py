@@ -15,6 +15,7 @@ import dashboard
 import live_prices
 import portfolio
 import ratings
+import top10_history
 
 BASE = Path(__file__).resolve().parent
 
@@ -329,6 +330,8 @@ def make_server(port=8765, lan=False):
                     self.reply(400, {'error': str(exc)})
                 except Exception:
                     self.reply(502, {'error': 'Rating history is unavailable right now.'})
+            elif self.path == '/api/top10-history':
+                self.reply(200, top10_history.load())
             elif self.path == '/api/crypto':
                 data = crypto.public(crypto.cached())
                 self.reply(200 if data else 404, data or {'error': 'No crypto data yet.'})
