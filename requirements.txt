@@ -4,3 +4,4 @@ pandas
 requests
 openpyxl
 lxml
+pillow   # app icons for the online version (build_site.py)

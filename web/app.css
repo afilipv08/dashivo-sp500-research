@@ -261,3 +261,4 @@ html[data-theme=dashivo] .nav-grp.tree .nav-kids{border-left-color:rgba(255,255,
 .phone-steps{line-height:1.9}.phone-steps>div:nth-child(even){padding-left:18px}
 .big-url{font:800 20px var(--head);color:var(--accent);word-break:break-all}.big-pin{font:900 34px var(--head);letter-spacing:.12em}
 @media(max-width:700px){.phone-grid{grid-template-columns:1fr}}
+a.btn{text-decoration:none}

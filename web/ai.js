@@ -45,6 +45,7 @@ function launchPrompt(r) {
 
 /* ---------- phone access (only shown on the computer, in phone mode) ---------- */
 function phoneCard() {
+  if (window.dashboardStatic) return null;   // the online version is already reachable from the phone
   const lan = window.dashboardLan;
   if (!lan) return card('Phone access', 'Open the dashboard on your phone, in the same Wi-Fi network', h('p', { class: 'muted' }, 'Start the dashboard with run_dashboard_telefon.bat to use it on your phone. The normal start stays reachable only from this computer.'), null, 'c12');
   const qr = h('div', { class: 'qr' });

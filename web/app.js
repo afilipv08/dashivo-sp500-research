@@ -6,6 +6,7 @@ const RUN = { running: false, progress: 0, message: 'Ready to start.', error: ''
 const RUN_PHASES = [['list', 'S&P 500 list'], ['quotes', 'Quotes + analysts'], ['export', 'Excel + Top 5'], ['load', 'Loading into the dashboard']];
 const duration = s => num(s) ? (s >= 60 ? Math.floor(s / 60) + ' min ' + String(Math.round(s % 60)).padStart(2, '0') + ' s' : Math.round(s) + ' s') : '—';
 async function runRequest(path, method = 'GET', body) {
+  if (window.dashboardStatic) return staticApi(path, method, body);   // online version: files + this browser
   const headers = { 'X-Dashboard-Token': window.dashboardRunToken };
   if (body) headers['Content-Type'] = 'application/json';
   const response = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
@@ -51,6 +52,7 @@ async function followProgram() {
 }
 async function startRun() {
   RUN.error = '';
+  if (window.dashboardStatic) { const m = await siteMeta(); if (m.workflowUrl) window.open(m.workflowUrl, '_blank', 'noopener'); else App.go('research'); return; }
   if (!window.dashboardRunToken) { RUN.error = 'Open the dashboard with run_dashboard.bat (http://127.0.0.1:8765) to run the program. A file opened directly cannot start Python for security reasons.'; if (App.route() !== 'research') App.go('research'); runPaint(); return; }
   if (RUN.running) { App.go('research'); return; }
   if (RUN.resumable && RUN.resumable.done) { if (App.route() !== 'research') App.go('research'); runPaint(); $('#runResume')?.scrollIntoView({ block: 'center' }); return; }
