@@ -313,7 +313,7 @@ def two_sheet_report(source):
     return compact
 
 
-def process_report(source_path, copy_report=True, now=None):
+def process_report(source_path, copy_report=True, now=None, report_path=None):
     source_path = Path(source_path).resolve()
     now = now or datetime.now().astimezone()
     wb = load_workbook(source_path)
@@ -334,7 +334,10 @@ def process_report(source_path, copy_report=True, now=None):
 
         output = BASE / 'Output'
         output.mkdir(parents=True, exist_ok=True)
-        report_path = available_path(output, source_path.stem + '_improvement') if copy_report else source_path
+        if report_path is not None:
+            report_path = Path(report_path).resolve()
+        else:
+            report_path = available_path(output, source_path.stem + '_improvement') if copy_report else source_path
         investment_dir = BASE / 'Investitii'
         investment_dir.mkdir(parents=True, exist_ok=True)
         investment_path = available_path(investment_dir, now.strftime('%d_%m_%Y_%I-%M%p') + '_top_5_to_invest')

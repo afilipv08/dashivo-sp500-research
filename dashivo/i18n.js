@@ -56,7 +56,7 @@ const I18N = {
     return core;
   },
   /* ---- DOM translation ---- */
-  skip(n) { const p = n.parentNode; return !p || /^(SCRIPT|STYLE|TEXTAREA|CODE)$/.test(p.nodeName); },
+  skip(n) { const p = n.parentNode; return !p || /^(SCRIPT|STYLE|TEXTAREA|CODE)$/.test(p.nodeName) || !!(p.closest && p.closest('.notr')); },
   text(n) {
     if (this.skip(n)) return;
     if (n._tr !== undefined && n.nodeValue === n._tr) { const v = this.tr(n._en); if (v !== n.nodeValue) { n.nodeValue = v; } n._tr = v; return; }

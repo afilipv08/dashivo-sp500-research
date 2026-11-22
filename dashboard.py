@@ -1,4 +1,5 @@
 import argparse
+import base64
 from datetime import date, datetime
 import json
 import math
@@ -8,7 +9,13 @@ import re
 from openpyxl import load_workbook
 
 BASE = Path(__file__).resolve().parent
-STYLE_REFERENCE = 'Dashivo-SimpleBudget.html · tema Dashivo (fisierele originale din conversatie)' 
+PAYLOAD_SCHEMA = 2   # bump when payload fields change, so cached JSON snapshots are rebuilt
+STYLE_REFERENCE = 'Dashivo design system (Reusable_Skill_Dashboards · reference app TaskFlow)'
+CSS_FILES = ('dashivo/styles.css', 'dashivo/themes.css', 'dashivo/shell.css', 'web/app.css')
+# Order matters: helpers -> UI -> app config + wording -> shared i18n/themes/shell -> app -> tour.
+JS_FILES = ('dashivo/core.js', 'dashivo/ui.js', 'web/config.js', 'web/vendor/qrcode.js', 'web/i18n_sp500.js', 'dashivo/i18n_brand.js',
+            'dashivo/i18n.js', 'dashivo/themes.js', 'dashivo/shell.js', 'web/data.js', 'web/visuals.js', 'web/views.js',
+            'web/portfolio.js', 'web/ai.js', 'web/crypto.js', 'web/app.js', 'dashivo/tour.js', 'web/tour_steps.js')
 
 
 def number(value):
@@ -34,7 +41,7 @@ def sheet_records(ws):
 
 
 def analyze(record):
-    fields = {'price': 'Pret actiune', 'low': 'Min. 52 wk', 'minTarget': 'Tinta minima',
+    fields = {'price': 'Pret actiune', 'low': 'Min. 52 wk', 'high': 'Max.', 'minTarget': 'Tinta minima',
               'meanTarget': 'Tinta medie', 'maxTarget': 'Tinta maxima',
               'sb': 'Strong Buy', 'buy': 'Buy', 'under': 'Underperform',
               'sell': 'Sell', 'total': 'Total Analysts'}
@@ -61,14 +68,14 @@ def analyze(record):
     item['distance'] = price/item['low']-1 if price and price > 0 and item['low'] and item['low'] > 0 else None
     issues = []
     if item['hold'] is None:
-        issues.append('Recomandari lipsa/inconsistente; distributia nu poate fi calculata.')
+        issues.append('Recommendations missing or inconsistent; the distribution cannot be calculated.')
     targets = [item[key] for key in ('minTarget', 'meanTarget', 'maxTarget')]
     if any(v is None or v <= 0 for v in targets):
-        issues.append('Una sau mai multe tinte sunt lipsa/invalide.')
+        issues.append('One or more targets are missing or invalid.')
     elif not targets[0] <= targets[1] <= targets[2]:
-        issues.append('Ordinea tinta minima <= medie <= maxima nu este respectata.')
+        issues.append('The order minimum ≤ mean ≤ maximum target is not respected.')
     if price is None or price <= 0:
-        issues.append('Pret lipsa/invalid.')
+        issues.append('Price missing or invalid.')
     item['issues'] = issues
     return item
 
@@ -87,9 +94,9 @@ def payload(source):
         bulk_count = len(bulk_records) if bulk_records is not None else None
         all_items = [analyze(record) for record in bulk_records] if bulk_records is not None else items
         match = re.search(r'SP500_(\d{2}_\d{2}_\d{4}_\d{2}-\d{2}-\d{2})', source.stem)
-        report_date = match.group(1).replace('_', ' ') if match else 'Necunoscuta'
+        report_date = match.group(1).replace('_', ' ') if match else 'Unknown'
         criteria = str(wb['Lista_Filtrata']['A1'].value or '')
-        return {'source': source.name, 'sourceDate': report_date,
+        return {'schema': PAYLOAD_SCHEMA, 'source': source.name, 'sourceDate': report_date,
                 'generated': datetime.now().astimezone().isoformat(timespec='seconds'),
                 'styleReference': STYLE_REFERENCE, 'criteria': criteria,
                 'bulkCount': bulk_count, 'headers': headers, 'items': items,
@@ -98,19 +105,44 @@ def payload(source):
         wb.close()
 
 
+def data_uri(path):
+    return 'data:image/png;base64,' + base64.b64encode((BASE/path).read_bytes()).decode('ascii')
+
+
+def build_html(data):
+    """Inline CSS, JS, logos and the JSON snapshot into one portable HTML file (like Dashivo build.py)."""
+    read = lambda name: (BASE/name).read_text(encoding='utf-8')
+    parts = {'__CSS__': '\n'.join(read(name) for name in CSS_FILES),
+             '__JS__': '\n'.join(read(name) for name in JS_FILES),
+             '__LOGO_SRC__': data_uri('dashivo/assets/logo.png'),
+             '__LOGO_WHITE__': data_uri('dashivo/assets/logo-white.png'),
+             '__MARK_SRC__': data_uri('dashivo/assets/mark.png'),
+             '__DATA_JSON__': data}
+    return re.sub('|'.join(parts), lambda match: parts[match.group(0)], read('web/index.html'))
+
+
+def load_payload(source):
+    """Dashboard data for an Excel report, read from its JSON snapshot (written on first use)."""
+    source = Path(source).resolve()
+    snapshot = source.with_suffix('.json')
+    if snapshot.is_file() and snapshot.stat().st_mtime >= source.stat().st_mtime:
+        try:
+            data = json.loads(snapshot.read_text(encoding='utf-8'))
+            if data.get('schema') == PAYLOAD_SCHEMA:
+                return data
+        except (OSError, ValueError):
+            pass
+    data = payload(source)
+    snapshot.write_text(json.dumps(data, ensure_ascii=False, allow_nan=False), encoding='utf-8')
+    return data
+
+
 def export_dashboard(source, output=None):
     source = Path(source).resolve()
     output = Path(output) if output else source.parent/'SP500_Dashboard.html'
-    data = json.dumps(payload(source), ensure_ascii=False, allow_nan=False)
+    data = json.dumps(load_payload(source), ensure_ascii=False, allow_nan=False)
     data = data.replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
-    template = (BASE/'dashboard_template.html').read_text(encoding='utf-8')
-    importer = (BASE/'dashboard_import.js').read_text(encoding='utf-8')
-    filters = (BASE/'dashboard_filters.js').read_text(encoding='utf-8')
-    runner = (BASE/'dashboard_run.js').read_text(encoding='utf-8')
-    theme_css = (BASE/'dashivo_theme.css').read_text(encoding='utf-8')
-    theme_js = (BASE/'dashivo_theme.js').read_text(encoding='utf-8')
-    language_js = (BASE/'dashboard_language.js').read_text(encoding='utf-8')
-    output.write_text(template.replace('__DATA_JSON__', data).replace('__IMPORT_JS__', importer).replace('__FILTER_JS__', filters).replace('__RUN_JS__', runner).replace('__THEME_CSS__', theme_css).replace('__THEME_JS__', theme_js).replace('__LANGUAGE_JS__', language_js), encoding='utf-8')
+    output.write_text(build_html(data), encoding='utf-8')
     print(f'Dashboard HTML: {output}')
     return output
 

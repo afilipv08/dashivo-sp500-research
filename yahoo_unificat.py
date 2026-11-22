@@ -5,7 +5,9 @@ from io import StringIO
 import argparse
 import math
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 import requests
 
@@ -48,10 +50,54 @@ ANALYST_COLUMNS = [
     'Latest Rating - Rating', 'Latest Rating - Price Action', 'Latest Rating - Price Target'
 ]
 HEADERS += ANALYST_COLUMNS
+WORKERS = 4                     # actiuni descarcate simultan
+MAX_ATTEMPTS = 4
+
+
+class RateGate:
+    """Pauza comuna pentru toate firele cand Yahoo limiteaza cererile (HTTP 429)."""
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.until = 0.0
+        self.strikes = 0
+
+    def wait(self):
+        while True:
+            with self.lock:
+                delay = self.until - time.monotonic()
+            if delay <= 0:
+                return
+            time.sleep(min(delay, 1.0))
+
+    def limited(self):
+        with self.lock:
+            self.strikes = min(self.strikes + 1, 5)
+            self.until = max(self.until, time.monotonic() + 10 * 2 ** (self.strikes - 1))
+
+    def ok(self):
+        with self.lock:
+            self.strikes = max(0, self.strikes - 1)
+
+
+GATE = RateGate()
+
+
+def is_rate_limited(exc):
+    text = f'{type(exc).__name__} {exc}'.lower()
+    return any(marker in text for marker in ('ratelimit', 'rate limit', 'too many requests', '429'))
 
 def analyst_values(symbol, price):
     try:
-        report = get_quote(symbol)
+        for attempt in range(MAX_ATTEMPTS):
+            GATE.wait()
+            try:
+                report = get_quote(symbol)
+                GATE.ok()
+                break
+            except Exception as exc:
+                if not is_rate_limited(exc) or attempt == MAX_ATTEMPTS - 1:
+                    raise
+                GATE.limited()
         history = report.get('recommendationHistory', [])
         current = history[0] if history else None
         counts = [as_int(current.get(k, 0)) for k in ('strongBuy','buy','hold','sell','strongSell')] if current is not None else [None]*5
@@ -215,7 +261,7 @@ def find_latest_ratings_in_page(ticker: str) -> list[dict[str, str]]:
     visible_text = re.sub('\\s+', ' ', re.sub('<[^>]+>', ' ', html.unescape(page))).strip()
     card_match = re.search('Latest Rating\\s+Date\\s+(?P<date>.+?)\\s+Analyst\\s+(?P<analyst>.+?)\\s+Rating Action\\s+(?P<rating_action>.+?)\\s+Rating\\s+(?P<rating>.+?)\\s+Price Action\\s+(?P<price_action>.+?)\\s+Price Target\\s+(?P<price_target>.+?)(?=\\s+(?:Statistics|Compare|People Also Watch|Copyright|Terms)\\b|$)', visible_text, flags=re.IGNORECASE)
     if card_match:
-        fields = {key: value.strip() for key, value in card_match.groupdict().items()}
+        fields = {key: clean_rating_text(value) for key, value in card_match.groupdict().items()}
         return [{'date': fields['date'], 'analyst': fields['analyst'], 'rating_action': fields['rating_action'], 'rating': fields['rating'], 'price_action': fields['price_action'], 'price_target': fields['price_target']}]
     records: list[dict[str, str]] = []
 
@@ -251,6 +297,11 @@ def find_latest_ratings_in_page(ticker: str) -> list[dict[str, str]]:
             seen.add(key)
             unique.append(item)
     return unique[:8]
+
+def clean_rating_text(value: str) -> str:
+    """Elimina linkul «View More» lipit de ultimul camp al cardului Yahoo."""
+    value = re.sub(r'\s*View More\s*$', '', value.strip(), flags=re.IGNORECASE).strip()
+    return '—' if value in ('', '-', '--') else value
 
 def format_number(value: Any) -> str:
     try:
@@ -291,9 +342,11 @@ def quote(record):
                   currency='', quote_time='Indisponibila', price_field='', status='',
                   source=f'https://finance.yahoo.com/quote/{symbol}/')
     last_error = ''
-    for attempt in range(3):
+    for attempt in range(MAX_ATTEMPTS):
+        GATE.wait()
         try:
             info = yf.Ticker(symbol).get_info()
+            GATE.ok()
             field = 'regularMarketPrice' if number(info.get('regularMarketPrice')) else 'currentPrice'
             price = number(info.get(field))
             low = number(info.get('fiftyTwoWeekLow'))
@@ -318,17 +371,23 @@ def quote(record):
             return result
         except Exception as exc:
             last_error = str(exc)
-            if attempt < 2:
+            if is_rate_limited(exc):
+                GATE.limited()
+            elif attempt >= 2:
+                break
+            elif attempt < MAX_ATTEMPTS - 1:
                 time.sleep(2 ** (attempt + 1))
     result['status'] = 'EROARE: ' + last_error[:250]
     return result
 
 def export(rows, list_url, started, limited=False):
-    OUTPUT.mkdir(exist_ok=True)
+    """Exportul complet (toate coloanele, cu formule) merge in Output/complet; compactul il scrie improvement."""
+    folder = OUTPUT / 'complet'
+    folder.mkdir(parents=True, exist_ok=True)
     now = datetime.now().astimezone()
-    path = OUTPUT / (now.strftime('SP500_%d_%m_%Y_%H-%M-%S') + '.xlsx')
-    if path.exists():
-        path = OUTPUT / (now.strftime('SP500_%d_%m_%Y_%H-%M-%S') + f'_{now.microsecond:06d}.xlsx')
+    path = folder / (now.strftime('SP500_%d_%m_%Y_%H-%M-%S') + '.xlsx')
+    if path.exists() or (OUTPUT / path.name).exists():
+        path = folder / (now.strftime('SP500_%d_%m_%Y_%H-%M-%S') + f'_{now.microsecond:06d}.xlsx')
     wb = Workbook()
     ws = wb.active
     ws.title = 'Actiuni SP500'
@@ -405,6 +464,38 @@ def export(rows, list_url, started, limited=False):
     wb.save(path)
     return path
 
+def checkpoint_path(day=None):
+    """Progresul zilei: o linie JSON per actiune terminata, ca o rulare intrerupta sa poata fi reluata."""
+    return OUTPUT / ('.checkpoint_' + (day or datetime.now()).strftime('%Y%m%d') + '.jsonl')
+
+def load_checkpoint(path):
+    meta, items = {}, {}
+    if not path.exists():
+        return meta, items
+    for line in path.read_text(encoding='utf-8').splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue                        # ultima linie poate fi taiata de o oprire brusca
+        if 'meta' in record:
+            meta = record['meta']
+        elif record.get('symbol'):
+            items[record['symbol']] = record
+    return meta, items
+
+def checkpoint_status(day=None):
+    meta, items = load_checkpoint(checkpoint_path(day))
+    return {'done': len(items), 'total': meta.get('total')} if items else None
+
+def json_default(value):
+    return value.item() if hasattr(value, 'item') else str(value)
+
+def research_item(record):
+    item = quote(record)
+    item['analyst_values'] = analyst_values(item['symbol'], item['price'])
+    time.sleep(0.4)
+    return item
+
 def preview(rows):
     columns = ['Simbol', 'Companie', 'Pret', 'Minim 52s', 'Maxim 52s', 'Dist. minim %', 'Pozitie 52s %', 'Moneda']
     data = []
@@ -421,6 +512,7 @@ def main():
     parser.add_argument('--limit', type=int, default=0, help='Doar pentru test: primele N simboluri din lista; 0=toate.')
     parser.add_argument('--input-excel', type=Path, help='Proceseaza offline un Excel existent, fara descarcari Yahoo.')
     parser.add_argument('--demo', action='store_true', help='Proceseaza offline cel mai recent raport din output-ul programului original.')
+    parser.add_argument('--resume', action='store_true', help='Continua rularea intrerupta azi (sare actiunile deja salvate).')
     args = parser.parse_args()
     if args.input_excel and args.demo:
         parser.error('Foloseste --input-excel sau --demo, nu ambele.')
@@ -439,23 +531,38 @@ def main():
     if yf is None:
         parser.error('Pentru descarcarea live este necesar yfinance. Demo-ul offline functioneaza fara acesta.')
     started = datetime.now().astimezone()
+    print('PHASE list', flush=True)
     frame, list_url = constituents()
     if args.limit:
         frame = frame.head(args.limit)
-    print(f'Simboluri de procesat: {len(frame)}. Preturile vin exclusiv din Yahoo Finance.')
-    rows = []
-    for n, record in enumerate(frame.to_dict('records'), start=1):
-        item = quote(record)
-        item['analyst_values'] = analyst_values(item['symbol'], item['price'])
-        rows.append(item)
-        print(f"[{n}/{len(frame)}] {item['symbol']}: {item['status']}", flush=True)
-        time.sleep(0.4)
+    records = frame.to_dict('records')
+    symbols = {str(r['Symbol']).replace('.', '-') for r in records}
+    OUTPUT.mkdir(exist_ok=True)
+    ckpt = checkpoint_path()
+    meta, saved = load_checkpoint(ckpt) if args.resume else ({}, {})
+    if not saved:
+        ckpt.write_text(json.dumps({'meta': {'started': started.isoformat(), 'total': len(records), 'list': list_url}}) + '\n', encoding='utf-8')
+    elif meta.get('started'):
+        started = datetime.fromisoformat(meta['started'])
+    rows = [item for symbol, item in saved.items() if symbol in symbols]
+    todo = [r for r in records if str(r['Symbol']).replace('.', '-') not in saved]
+    print(f'Simboluri de procesat: {len(records)}. Preturile vin exclusiv din Yahoo Finance.')
+    print(f'PHASE quotes {len(records)} {len(rows)}', flush=True)
+    with ThreadPoolExecutor(WORKERS) as pool, ckpt.open('a', encoding='utf-8') as log:
+        for future in as_completed([pool.submit(research_item, r) for r in todo]):
+            item = future.result()
+            rows.append(item)
+            log.write(json.dumps(item, default=json_default) + '\n')
+            log.flush()
+            print(f"[{len(rows)}/{len(records)}] {item['symbol']}: {item['status']}", flush=True)
+    print('PHASE export', flush=True)
     rows.sort(key=lambda r: (r['distance'] is None, r['distance'] if r['distance'] is not None else math.inf, r['symbol']))
     path = export(rows, list_url, started, limited=bool(args.limit))
-    process_report(path, copy_report=False)
+    report, _, _ = process_report(path, report_path=OUTPUT / path.name)
+    ckpt.unlink(missing_ok=True)
     preview(rows)
     valid = sum(r['distance'] is not None for r in rows)
-    print(f'\nExcel salvat: {path}\nCotatii utilizabile: {valid}/{len(rows)}')
+    print(f'\nExcel salvat: {report}\nExport complet: {path}\nCotatii utilizabile: {valid}/{len(rows)}')
     if valid < len(rows):
         print('ATENTIE: rezultat partial. Randurile cu erori sunt la final, nu sunt eliminate.')
     return 0 if valid else 2

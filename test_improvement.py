@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -178,6 +179,23 @@ class ExportTests(unittest.TestCase):
             self.assertAlmostEqual(result['Lista_SP500']['O2'].value, 28/16)
             self.assertEqual(result['Lista_SP500']['T2'].value, 56)
             result.close()
+
+    def test_live_export_keeps_full_export_and_writes_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(improvement, 'BASE', Path(directory)):
+            values = [None]*len(yahoo_unificat.ANALYST_COLUMNS)
+            values[:6] = ['BUY', 5, 10, 1, 0, 0]
+            item = dict(symbol='TEST', company='Test', sector='Test', price=110, low=100, high=120, distance=0.1,
+                        currency='USD', quote_time='Test', price_field='currentPrice', status='OK',
+                        source='https://example.com', analyst_values=values)
+            output = Path(directory)/'Output'
+            with patch.object(yahoo_unificat, 'OUTPUT', output):
+                full = yahoo_unificat.export([item], 'offline test', datetime.now(), limited=True)
+            self.assertEqual(full.parent, output/'complet')
+            report, _, _ = improvement.process_report(full, report_path=output/full.name)
+            self.assertEqual(report, (output/full.name).resolve())
+            self.assertEqual(load_workbook(full, read_only=True).sheetnames, ['Actiuni SP500'])
+            self.assertTrue(report.with_suffix('.json').is_file())
+            self.assertEqual(json.loads(report.with_suffix('.json').read_text(encoding='utf-8'))['allItems'][0]['symbol'], 'TEST')
 
     def test_closeness_precedes_score(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(improvement, 'BASE', Path(directory)):
