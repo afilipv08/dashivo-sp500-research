@@ -44,8 +44,8 @@ function rangeAxis(r) {
   const axis = h('div', { class: 'rng' }, h('div', { class: 'rng-track' }));
   if (num(r.low) && num(high)) {
     axis.append(h('div', { class: 'rng-52', style: { left: pos(r.low) + '%', width: (pos(high) - pos(r.low)) + '%' } }),
-      h('div', { class: 'rng-end', style: anchor(pos(r.low)) }, h('span', null, '52w '), h('b', { class: 'notr' }, nf(r.low))),
-      h('div', { class: 'rng-end r', style: anchor(pos(high)) }, h('span', null, '52w '), h('b', { class: 'notr' }, nf(high))));
+      h('div', { class: 'rng-end', style: anchor(pos(r.low)) }, h('b', { class: 'notr' }, nf1(r.low)), ' [', h('span', null, '52wk low'), ']'),
+      h('div', { class: 'rng-end r', style: anchor(pos(high)) }, h('b', { class: 'notr' }, nf1(high)), ' [', h('span', null, '52wk high'), ']'));
   }
   /* greedy rows so close labels do not overlap */
   const rows = [];
@@ -53,8 +53,8 @@ function rangeAxis(r) {
     const x = pos(v); let row = rows.findIndex(last => x - last > 17);
     if (row < 0) { row = rows.length; rows.push(x); } else rows[row] = x;
     const vs = key === 'price' ? '' : ' (' + (v >= r.price ? '+' : '−') + nf(Math.abs(v / r.price - 1) * 100, 1) + '%)';
-    axis.append(h('div', { class: 'rng-mk ' + key, style: { left: x + '%' }, title: label + ': ' + usd(v) + vs }),
-      h('div', { class: 'rng-lb ' + key, style: { ...anchor(x), top: (34 + row * 14) + 'px' } }, h('span', null, label), ' ', h('b', { class: 'notr' }, nf(v))));
+    axis.append(h('div', { class: 'rng-mk ' + key, style: { left: x + '%' }, title: label + ': ' + usd1(v) + vs }),
+      h('div', { class: 'rng-lb ' + key, style: { ...anchor(x), top: (34 + row * 14) + 'px' } }, h('b', { class: 'notr' }, nf1(v)), ' [', h('span', null, label), ']'));
   }
   axis.style.height = (40 + Math.max(1, rows.length) * 14) + 'px';
   return axis;

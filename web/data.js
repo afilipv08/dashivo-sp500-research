@@ -3,8 +3,10 @@
 const DATA = JSON.parse(document.getElementById('data').textContent);
 const num = v => typeof v === 'number' && Number.isFinite(v);
 const nf = (v, digits = 2) => num(v) ? v.toLocaleString(I18N.locale, { maximumFractionDigits: digits }) : '—';
+const nf1 = v => num(v) ? v.toLocaleString(I18N.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—';
 const pctf = v => num(v) ? nf(v * 100) + '%' : '—';
 const usd = v => num(v) ? '$' + nf(v) : '—';
+const usd1 = v => num(v) ? '$' + nf1(v) : '—';
 
 /* Excel headers stay as in the workbook; the UI shows an English label that the i18n engine translates. */
 const HEADER_EN = {

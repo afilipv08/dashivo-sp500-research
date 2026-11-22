@@ -128,10 +128,10 @@ td.live{font-weight:700}
 .rng-end{position:absolute;top:0;font-size:10px;color:var(--muted);white-space:nowrap}
 .rng-end b{color:var(--text);font-weight:700}
 .rng-mk{position:absolute;top:13px;width:3px;height:16px;margin-left:-1.5px;border-radius:2px;cursor:help}
-.rng-mk.price{top:10px;height:22px;width:4px;margin-left:-2px;background:var(--text)}
+.rng-mk.price{top:10px;height:22px;width:4px;margin-left:-2px;background:var(--bad)}
 .rng-mk.min{background:var(--warn)}.rng-mk.mean{background:var(--good)}.rng-mk.max{background:var(--info)}
 .rng-lb{position:absolute;font-size:10px;white-space:nowrap;color:var(--muted)}
-.rng-lb b{font-weight:800}.rng-lb.price b{color:var(--text)}.rng-lb.min b{color:var(--warn)}.rng-lb.mean b{color:var(--good)}.rng-lb.max b{color:var(--info)}
+.rng-lb b{font-weight:800}.rng-lb.price b{color:var(--bad)}.rng-lb.min b{color:var(--warn)}.rng-lb.mean b{color:var(--good)}.rng-lb.max b{color:var(--info)}
 .recbar{display:flex;height:18px;border-radius:6px;overflow:hidden;background:var(--track);margin-top:6px}
 .recbar span{display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800;white-space:nowrap;overflow:hidden;text-shadow:0 1px 1px rgba(0,0,0,.25)}
 .st-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
