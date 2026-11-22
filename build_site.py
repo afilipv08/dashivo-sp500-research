@@ -85,12 +85,13 @@ PWA_HEAD = """<link rel="manifest" href="manifest.webmanifest"><meta name="theme
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="SP500 Research">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">"""
 SERVICE_WORKER = """// offline: always try the network first, fall back to the last copy
-const CACHE = 'sp500-v1';
+const CACHE = 'sp500-v2';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
+  // 'no-cache' revalidates with GitHub Pages, so a new version shows up right away instead of after the 10-minute HTTP cache
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
 """
