@@ -168,6 +168,17 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   retries failed stocks slowly, then fills price and 52-week range from one batch of daily history
   (`price_field = history 1y`). First cloud run before this: 432/503.
 
+## Top 10 history
+
+- After every research run (PC and GitHub) `top10_history.record` stores the day's Top 10 for the three presets
+  in `Output/top10_history.json` (committed): one entry per day, latest run of the day wins, with price, proximity,
+  upside, score and how many stocks matched. Its preset rules and ranking copy `web/data.js` and must stay equal
+  (tested against the Investitii Top 5). `--backfill` rebuilt it from the saved reports.
+- The online research now runs every weekday at 16:00 Romania time: two UTC crons (summer/winter) plus a gate
+  step that keeps only the one matching the current Bucharest offset.
+- The Top 10 history page compares each day's picks with the current live price (“since selection”), shows the
+  most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
+
 ## Phone access
 
 - Opt-in only (`run_dashboard_telefon.bat` / `dashboard_server.py --lan`); the normal start stays

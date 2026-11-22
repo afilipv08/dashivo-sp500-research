@@ -11,7 +11,7 @@ function saveTop10() {
   const sel = selection(); if (!sel) return;
   const top = ranked(sel).slice(0, 10);
   if (!top.length) { toast('No valid ranking values.'); return; }
-  const label = activeCriteria().filter(c => c.chip).map(c => c.chip(UI.f).join(' ')).join(' · ');
+  const label = activeCriteria().filter(c => c.chip).map(c => { const [l, v] = c.chip(UI.f); return tr(l) + ' ' + v; }).join(' · ');   // saved in the current language
   const now = new Date();
   store.set(MINE_KEY, [{ date: now.toISOString().slice(0, 10), at: now.toISOString(), report: DATA.source, label, ranking: UI.ranking, matches: sel.length, items: top.map(histKeep) }, ...mySaves()].slice(0, 200));
   toast('Top 10 saved in the history');
