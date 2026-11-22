@@ -149,6 +149,25 @@ segment shows its analyst count, each filter shows its meaning and how many stoc
 its own. The latest rating explains the grade and lists recent rating changes, fetched on first
 hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
 
+## Online version (GitHub Pages)
+
+- The user does not keep the PC on, so the dashboard also runs without it: repository
+  `afilipv08/dashivo-sp500-research` (public, required by free Pages; it holds code and market data only),
+  site `https://afilipv08.github.io/dashivo-sp500-research/`, installable on the phone (manifest, icons,
+  service worker with network-first offline cache).
+- `build_site.py` builds `site/`: the same app with `window.dashboardStatic`, plus `data/live_prices.json`,
+  `crypto.json`, `ratings.json` (filtered list), `history.json` (1 year of daily closes, one shared date
+  list), `meta.json`. Ratings and history are reused from the published site while under a day old.
+- In site mode `web/static.js` answers every `/api/*` call: files for data, `localStorage` for the demo
+  portfolio (same rules as `portfolio.py`, with export/import backup because it lives on one device), and
+  “Run research” opens the GitHub workflow page. The PC version is unchanged.
+- GitHub Actions (times in Europe/Bucharest): `research.yml` every Monday 16:00 and on demand runs
+  `yahoo_unificat.py`, commits the reports and publishes; `site.yml` refreshes prices every 30 minutes in US
+  market hours, crypto every 2 hours, and rebuilds after every push to `main`.
+- Yahoo silently throttles cloud runners (quotes come back empty, no 429): `yahoo_unificat.retry_failed`
+  retries failed stocks slowly, then fills price and 52-week range from one batch of daily history
+  (`price_field = history 1y`). First cloud run before this: 432/503.
+
 ## Phone access
 
 - Opt-in only (`run_dashboard_telefon.bat` / `dashboard_server.py --lan`); the normal start stays

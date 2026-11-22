@@ -496,6 +496,66 @@ def research_item(record):
     time.sleep(0.4)
     return item
 
+RETRY_PAUSE = 20
+
+
+def apply_history(item, closes):
+    """Price and 52-week range from daily history, for stocks whose quote page Yahoo did not return."""
+    close, low, high = closes
+    if not (close and low and high and high >= low):
+        return item
+    item.update(price=close, low=low, high=high, distance=close / low - 1, position=(close - low) / (high - low) if high > low else None,
+                currency='USD', quote_time='Inchidere zilnica (istoric)', price_field='history 1y', status='OK (pret din istoric zilnic)')
+    item['analyst_values'] = analyst_values(item['symbol'], close)
+    return item
+
+
+def history_ranges(symbols):
+    """{symbol: (last close, 52-week low, 52-week high)} from one yfinance batch of daily bars."""
+    frame = yf.download(symbols, period='1y', interval='1d', progress=False, auto_adjust=False, group_by='column', threads=True)
+    out = {}
+    for sym in symbols:
+        try:
+            close = frame['Close'][sym].dropna(); low = frame['Low'][sym].dropna(); high = frame['High'][sym].dropna()
+            if len(close):
+                out[sym] = (number(close.iloc[-1]), number(low.min()), number(high.max()))
+        except (KeyError, IndexError):
+            continue
+    return out
+
+
+def retry_failed(rows, records, ckpt):
+    """Cloud servers get silently throttled by Yahoo (quotes come back empty, no HTTP 429): retry the failed
+    stocks once more, slowly, then fall back to daily history for the price and the 52-week range."""
+    failed = [r for r in rows if r['distance'] is None]
+    if not failed:
+        return rows
+    by_symbol = {str(r['Symbol']).replace('.', '-'): r for r in records}
+    print(f'PHASE retry {len(failed)}', flush=True)
+    time.sleep(RETRY_PAUSE)
+    fixed = {}
+    with ThreadPoolExecutor(2) as pool, ckpt.open('a', encoding='utf-8') as log:
+        for item in pool.map(research_item, [by_symbol[f['symbol']] for f in failed if f['symbol'] in by_symbol]):
+            if item['distance'] is not None:
+                fixed[item['symbol']] = item
+                log.write(json.dumps(item, default=json_default) + '\n')
+            print(f"[retry] {item['symbol']}: {item['status']}", flush=True)
+    still = [f for f in failed if f['symbol'] not in fixed]
+    if still:
+        try:
+            ranges = history_ranges([f['symbol'] for f in still])
+        except Exception as exc:
+            ranges = {}
+            print(f'[history] EROARE: {exc}', flush=True)
+        for f in still:
+            if f['symbol'] in ranges:
+                item = apply_history(dict(f), ranges[f['symbol']])
+                if item['distance'] is not None:
+                    fixed[item['symbol']] = item
+                    print(f"[history] {item['symbol']}: {item['status']}", flush=True)
+    return [fixed.get(r['symbol'], r) for r in rows]
+
+
 def preview(rows):
     columns = ['Simbol', 'Companie', 'Pret', 'Minim 52s', 'Maxim 52s', 'Dist. minim %', 'Pozitie 52s %', 'Moneda']
     data = []
@@ -555,6 +615,7 @@ def main():
             log.write(json.dumps(item, default=json_default) + '\n')
             log.flush()
             print(f"[{len(rows)}/{len(records)}] {item['symbol']}: {item['status']}", flush=True)
+    rows = retry_failed(rows, records, ckpt)
     print('PHASE export', flush=True)
     rows.sort(key=lambda r: (r['distance'] is None, r['distance'] if r['distance'] is not None else math.inf, r['symbol']))
     path = export(rows, list_url, started, limited=bool(args.limit))

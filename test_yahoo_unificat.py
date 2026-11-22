@@ -75,5 +75,21 @@ class ResumeTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
 
 
+class RetryTests(unittest.TestCase):
+    def test_failed_stocks_are_retried_then_filled_from_history(self):
+        records = [{'Symbol': s, 'Security': s, 'GICS Sector': 'Test'} for s in ('AAA', 'BBB', 'CCC')]
+        bad = lambda s: dict(item(s), price=None, low=None, high=None, distance=None, position=None, status='EROARE: x')
+        rows = [item('AAA'), bad('BBB'), bad('CCC')]
+        with tempfile.TemporaryDirectory() as d, patch.object(yu, 'RETRY_PAUSE', 0), \
+             patch.object(yu, 'research_item', side_effect=lambda r: item(r['Symbol']) if r['Symbol'] == 'BBB' else bad(r['Symbol'])), \
+             patch.object(yu, 'history_ranges', return_value={'CCC': (110.0, 100.0, 150.0)}), \
+             patch.object(yu, 'analyst_values', return_value=[None] * len(yu.ANALYST_COLUMNS)):
+            out = {r['symbol']: r for r in yu.retry_failed(rows, records, Path(d) / 'c.jsonl')}
+        self.assertEqual(out['BBB']['status'], 'OK')                       # second pass succeeded
+        self.assertEqual((out['CCC']['price'], out['CCC']['low'], out['CCC']['high']), (110.0, 100.0, 150.0))
+        self.assertAlmostEqual(out['CCC']['distance'], 0.1)
+        self.assertEqual(out['CCC']['price_field'], 'history 1y')
+
+
 if __name__ == '__main__':
     unittest.main()
