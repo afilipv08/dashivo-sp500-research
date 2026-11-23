@@ -162,7 +162,8 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   portfolio (same rules as `portfolio.py`, with export/import backup because it lives on one device), and
   “Run research” opens the GitHub workflow page. The PC version is unchanged.
 - GitHub Actions: `research.yml` every weekday at 16:00 Europe/Bucharest (paired UTC schedules plus a timezone-offset gate for summer/winter) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 history, then publishes; `site.yml` refreshes prices every 30 minutes in US
-  market hours, crypto every 2 hours, and rebuilds after every push to `main`.
+  market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
+  `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
 - Yahoo silently throttles cloud runners (quotes come back empty, no 429): `yahoo_unificat.retry_failed`
   retries failed stocks slowly, then fills price and 52-week range from one batch of daily history
   (`price_field = history 1y`). First cloud run before this: 432/503.
