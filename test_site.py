@@ -2,12 +2,24 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import build_site
 
 
 class SiteTests(unittest.TestCase):
+    def test_market_history_includes_sp500_index(self):
+        import pandas as pd
+        index = pd.date_range('2026-11-20', periods=2, freq='D')
+        columns = pd.MultiIndex.from_tuples([('Close', 'AAA'), ('Close', '^GSPC')])
+        frame = pd.DataFrame([[10.0, 6000.0], [11.0, 6100.0]], index=index, columns=columns)
+        fake = SimpleNamespace(download=lambda symbols, **kwargs: (self.assertIn('^GSPC', symbols) or frame))
+        with patch.dict('sys.modules', {'yfinance': fake}):
+            history = build_site.history(['AAA'])
+        self.assertEqual(history['series']['^GSPC'], [6000.0, 6100.0])
+        self.assertEqual(history['series']['AAA'], [10.0, 11.0])
+
     def test_build_without_network(self):
         with tempfile.TemporaryDirectory() as d, patch.object(build_site, 'SITE', Path(d) / 'site'), \
              patch('live_prices.cached', return_value={'at': '2026-11-22T10:00:00+02:00', 'prices': {'CBRE': 126.7}}), \

@@ -267,6 +267,16 @@ a.btn{text-decoration:none}
 .sector-table tbody tr{cursor:pointer}.sector-table tbody tr:hover,.sector-table tbody tr.selected{background:var(--tint1)}
 .sector-table td small{font-size:10px;white-space:nowrap}.sector-table td:first-child{font-weight:700;white-space:nowrap}
 .sector-table .sec-ic{vertical-align:middle;margin-right:5px}
+/* ===== Simulation performance ===== */
+.sim-seg button{padding:6px 14px}.sim-row{align-items:center}.sim-periods button{padding:5px 10px}
+.sim-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.sim-kpis .kpi{min-width:0}.sim-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sim-summary>div{border:1px solid var(--line);border-radius:9px;background:var(--tint1);padding:8px;min-width:0}
+.sim-summary small{display:block;color:var(--muted);font-size:10px}.sim-summary b{display:block;font:800 15px var(--head);margin-top:3px}
+.sim-result,.sim-pending{display:flex;flex-direction:column;gap:2px;min-width:110px}
+.sim-result b{font:800 14px var(--head)}.sim-result small,.sim-pending small{font-size:10px;color:var(--muted)}
+.sim-pending b{font-size:12px;color:var(--muted)}.sim-pending small{white-space:nowrap}
+.sim-table td{vertical-align:top}.sim-table td:first-child{white-space:nowrap}
+@media(max-width:700px){.sim-kpis{grid-template-columns:1fr}.sim-summary{gap:4px}.sim-summary>div{padding:6px}.sim-summary small{font-size:9px}.sim-summary b{font-size:13px}}
 /* ===== Top 10 history ===== */
 .hist-seg button{padding:6px 14px}
 .hist-list{display:flex;flex-direction:column;gap:10px}

@@ -189,6 +189,11 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   step that keeps only the one matching the current Bucharest offset.
 - The Top 10 history page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
+- Simulation cohorts use each saved Top 5/Top 10 selection and report entry prices, with $10,000 equally
+  allocated across eligible picks. The page compares 1-, 2- and 3-calendar-month price returns against the
+  S&P 500; it uses the first available close on/after each endpoint, and shows future or unavailable results
+  as pending/missing rather than estimating them. Dividends, fees and taxes are excluded; the daily index
+  close is an approximation to the report's intraday stock prices.
 
 ## Phone access
 

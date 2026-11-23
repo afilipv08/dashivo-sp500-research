@@ -151,9 +151,20 @@ def build(refresh=False):
         write_json('ratings.json', rated)
 
     hist = previous('history.json') if refresh else None
-    if refresh and not (hist and fresh(hist, 24) and '^GSPC' in hist.get('series', {})):
+    if refresh:
         try:
-            hist = history(symbols)
+            if hist and fresh(hist, 24):
+                if '^GSPC' not in hist.get('series', {}):
+                    benchmark = history(['^GSPC'])
+                    by_date = dict(zip(benchmark['dates'], benchmark['series'].get('^GSPC', [])))
+                    values = [by_date.get(day) for day in hist['dates']]
+                    if any(isinstance(value, (int, float)) and value > 0 for value in values):
+                        hist['series']['^GSPC'] = values
+                        hist['at'] = benchmark['at']
+                    else:
+                        print('history: S&P 500 benchmark is unavailable')
+            else:
+                hist = history(symbols)
         except Exception as exc:
             print('history:', exc)
     if hist:

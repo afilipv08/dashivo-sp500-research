@@ -82,7 +82,7 @@ class DashboardTests(unittest.TestCase):
             self.assertIn('const LOGO_SRC = "data:image/png;base64,', html)
             self.assertIn('Reusable_Skill_Dashboards', html)
             # pages and SP500 behaviour
-            for page in ('overview', 'research', 'top10', 'sectors', 'filtered', 'universe', 'method'):
+            for page in ('overview', 'research', 'top10', 'sectors', 'history', 'simulations', 'filtered', 'universe', 'method'):
                 self.assertIn(f'Views.{page} =', html)
             for field in ('distanceMax', 'analystsMin', 'sellExact', 'underMax', 'holdMax'):
                 self.assertIn(f"{field}", html)
@@ -103,6 +103,9 @@ class DashboardTests(unittest.TestCase):
             self.assertIn('https://grok.com/?q=', html)
             self.assertIn('function phoneCard', html)
             self.assertIn('Views.history =', html)
+            self.assertIn('Views.simulations =', html)
+            self.assertIn('function simOutcome', html)
+            self.assertIn("'/api/market-history'", html)
             self.assertIn('const nf1 =', html)
             self.assertIn('52wk low', html)
             self.assertIn("class: 'rng-lb ' + key", html)
