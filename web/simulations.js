@@ -69,8 +69,8 @@ function simValueCell(o) {
 }
 Views.simulations = () => {
   loadSimulations();
-  const heading = card('Simulation results', 'Each research day is a separate equal-weighted cohort. Top 5 Investitii uses the first five picks; other presets use their Top 10. Starting capital is $10,000. Compares price changes with the S&P 500 index; dividends, fees and taxes are excluded.',
-    h('div', { class: 'seg sim-seg' }, SIM_OPTIONS.map(([key, label]) => h('button', { class: SIM_VIEW.preset === key ? 'on' : '', onclick: () => { SIM_VIEW.preset = key; App.render(); } }, label))));
+  const heading = card(tr('Simulation results'), tr('Each research day is a separate equal-weighted cohort. Top 5 Investitii uses the first five picks; other presets use their Top 10. Starting capital is $10,000. Compares price changes with the S&P 500 index; dividends, fees and taxes are excluded.'),
+    h('div', { class: 'seg sim-seg' }, SIM_OPTIONS.map(([key, label]) => h('button', { class: SIM_VIEW.preset === key ? 'on' : '', onclick: () => { SIM_VIEW.preset = key; App.render(); } }, tr(label)))));
   if (SIM_VIEW.error) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, SIM_VIEW.error)));
   if (!SIM_VIEW.history || !SIM_VIEW.market) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading the history…'))));
   const days = SIM_VIEW.history.days || [], rows = days.map(day => ({ day, outcomes: SIM_PERIODS.map(m => simOutcome(day, SIM_VIEW.preset, m)), sim: simEntry(day, SIM_VIEW.preset) }));
@@ -83,7 +83,7 @@ Views.simulations = () => {
         h('div', null, h('small', null, tr('Excess return')), h('b', { class: 'notr ' + plClass(avgE) }, signedPct(avgE)))), null, 'sim-kpi');
   });
   const chosen = rows.map(r => ({ ...r, o: r.outcomes[SIM_VIEW.horizon - 1] })).filter(r => r.o.status === 'done');
-  const chart = card('Portfolio vs S&P 500 · ' + SIM_VIEW.horizon + ' ' + tr(SIM_VIEW.horizon === 1 ? 'month' : 'months'), 'P = portfolio; S&P = benchmark. Hover for exact returns.', chosen.length ? barList(chosen.flatMap(r => [
+  const chart = card(tr('Portfolio') + ' / ' + tr('S&P 500') + ' · ' + SIM_VIEW.horizon + ' ' + tr(SIM_VIEW.horizon === 1 ? 'month' : 'months'), 'P = portfolio; S&P = benchmark. Hover for exact returns.', chosen.length ? barList(chosen.flatMap(r => [
     { label: new Date(r.day.date + 'T12:00:00').toLocaleDateString(I18N.locale, { day: '2-digit', month: 'short' }) + ' P', value: r.o.portfolio * 100, color: r.o.portfolio < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(simDayLabel(r.day.date) + ' · ' + tr('Portfolio'), [tipRow('Portfolio return', signedPct(r.o.portfolio)), tipRow('Ending value', simCash(r.o.value)), tipRow('Market close', r.o.exitDate)]) },
     { label: new Date(r.day.date + 'T12:00:00').toLocaleDateString(I18N.locale, { day: '2-digit', month: 'short' }) + ' S&P', value: r.o.benchmark * 100, color: r.o.benchmark < 0 ? 'var(--bad)' : 'var(--info)', tip: tipHtml(simDayLabel(r.day.date) + ' · S&P 500', [tipRow('S&P 500 return', signedPct(r.o.benchmark)), tipRow('Market close', r.o.exitDate)]) }
   ]), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }) : h('div', { class: 'empty' }, tr('No completed cohorts yet; the first 1-month review is due one calendar month after each selection.')), null, 'c12');
@@ -95,6 +95,6 @@ Views.simulations = () => {
       h('td', { class: 'notr' }, String(r.sim?.positions?.length || 0)), h('td', { class: 'notr' }, simCash(r.sim?.capital)),
       ...r.outcomes.map(o => h('td', null, simValueCell(o))))))));
   return h('div', null, heading, h('div', { class: 'kpis sim-kpis' }, ...summaries), h('div', { class: 'row mt sim-row' }, h('b', null, tr('Return chart')), h('span', { class: 'sp' }), periodButtons), chart,
-    card('Cohort results', 'The first close on or after each 1/2/3-calendar-month date is used. Benchmark baseline uses the last S&P 500 close on or before selection day; selection prices come from the report.', table, null, 'c12'),
+    card(tr('Cohort results'), tr('The first close on or after each 1/2/3-calendar-month date is used. Benchmark baseline uses the last S&P 500 close on or before selection day; selection prices come from the report.'), table, null, 'c12'),
     h('p', { class: 'muted small mt' }, tr('Price return only. No dividends, commissions, taxes or slippage. S&P 500 baseline is a daily close, so it is approximate to the intraday report quote. Not investment advice.')));
 };
