@@ -17,6 +17,7 @@ import dashboard
 BASE = Path(__file__).resolve().parent
 PATH = BASE / 'Output' / 'top10_history.json'
 STAMP = re.compile(r'SP500_(\d{2}_\d{2}_\d{4}_\d{2}-\d{2}-\d{2})\.xlsx$')
+SIMULATION_CAPITAL = 10_000.0
 PRESETS = {   # None = no limit, as in the dashboard
     'default': dict(distance=12, analysts=12, sell=0, under=2, hold=2, positive=None, consensus=None, gap_min=None),
     'excel': dict(distance=12, analysts=12, sell=0, under=2, hold=None, positive=None, consensus=None, gap_min=None),
@@ -55,7 +56,15 @@ def top10(items, preset):
     rows = [r for r in items if passes(r, PRESETS[preset]) and num(r.get('gap'))]
     rows.sort(key=lambda r: (r['gap'], -(r.get('weighted') or 0), r['symbol']))
     keep = ('symbol', 'company', 'sector', 'price', 'gap', 'upside', 'weighted', 'support', 'distance', 'total')
-    return {'matches': len(rows), 'items': [{k: r.get(k) for k in keep} for r in rows[:10]]}
+    result = {'matches': len(rows), 'items': [{k: r.get(k) for k in keep} for r in rows[:10]]}
+    # Investitii uses the first five from its ordered preset; other presets simulate all ten.
+    selected = result['items'][:5 if preset == 'top5' else 10]
+    per_position = SIMULATION_CAPITAL / len(selected) if selected else 0.0
+    positions = [{'symbol': r['symbol'], 'entryPrice': r['price'], 'allocation': per_position,
+                  'shares': per_position / r['price']} for r in selected if num(r.get('price')) and r['price'] > 0]
+    result['simulation'] = {'capital': SIMULATION_CAPITAL, 'invested': per_position * len(positions),
+                            'cash': SIMULATION_CAPITAL - per_position * len(positions), 'positions': positions}
+    return result
 
 
 def snapshot(report):

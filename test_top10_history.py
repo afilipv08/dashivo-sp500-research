@@ -23,6 +23,12 @@ class Top10HistoryTests(unittest.TestCase):
         self.assertEqual([r['symbol'] for r in th.top10(items, 'top5')['items']], ['DDD'])        # BUY, hold<=1, SB+B>=15
         many = [row(f'S{i:02d}', gap=i / 100) for i in range(15)]
         self.assertEqual((th.top10(many, 'default')['matches'], len(th.top10(many, 'default')['items'])), (15, 10))
+        sim = th.top10(many, 'default')['simulation']
+        self.assertEqual((sim['capital'], sim['invested'], len(sim['positions'])), (10_000, 10_000, 10))
+        self.assertEqual([p['allocation'] for p in sim['positions']], [1_000] * 10)
+        top5_rows = [row(f'T{i:02d}', gap=i / 100, hold=1, sb=10, buy=5, total=20) for i in range(8)]
+        top5 = th.top10(top5_rows, 'top5')['simulation']
+        self.assertEqual((len(top5['positions']), top5['positions'][0]['allocation']), (5, 2_000))
 
     def test_one_entry_per_day_latest_wins(self):
         snaps = [{'date': '2026-11-22', 'at': '2026-11-22T16:00:00', 'presets': {}}, {'date': '2026-11-22', 'at': '2026-11-22T21:00:00', 'presets': {}},

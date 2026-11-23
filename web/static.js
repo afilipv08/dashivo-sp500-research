@@ -89,6 +89,7 @@ async function staticApi(path, method, body) {
     return all[sym];
   }
   if (route === '/api/top10-history') return siteFile('top10_history.json', false).catch(() => ({ days: [] }));
+  if (route === '/api/market-history') return siteFile('history.json', false);
   if (route === '/api/portfolio') return pfSummary(pfLoad());
   if (route === '/api/portfolio/history') {
     const id = new URLSearchParams(query).get('id'), d = pfLoad(), p = [...d.positions, ...d.closed].find(x => x.id === id);

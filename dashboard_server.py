@@ -8,6 +8,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import webbrowser
 
 import crypto
@@ -18,6 +19,29 @@ import ratings
 import top10_history
 
 BASE = Path(__file__).resolve().parent
+MARKET_HISTORY_CACHE = {'data': None, 'fetched': 0.0}
+MARKET_HISTORY_LOCK = threading.Lock()
+
+
+def market_history():
+    """Read local history or the published public history; never expose API credentials."""
+    with MARKET_HISTORY_LOCK:
+        if MARKET_HISTORY_CACHE['data'] and time.monotonic() - MARKET_HISTORY_CACHE['fetched'] < 1800:
+            return MARKET_HISTORY_CACHE['data']
+        local = BASE / 'site' / 'data' / 'history.json'
+        data = None
+        try:
+            candidate = json.loads(local.read_text(encoding='utf-8'))
+            if '^GSPC' in candidate.get('series', {}):
+                data = candidate
+        except (OSError, ValueError):
+            pass
+        if data is None:
+            url = 'https://afilipv08.github.io/dashivo-sp500-research/data/history.json?t=' + str(int(time.time()))
+            with urllib.request.urlopen(url, timeout=20) as response:
+                data = json.loads(response.read())
+        MARKET_HISTORY_CACHE.update(data=data, fetched=time.monotonic())
+        return data
 
 
 PHASES = ('list', 'quotes', 'export', 'load')
@@ -332,6 +356,11 @@ def make_server(port=8765, lan=False):
                     self.reply(502, {'error': 'Rating history is unavailable right now.'})
             elif self.path == '/api/top10-history':
                 self.reply(200, top10_history.load())
+            elif self.path == '/api/market-history':
+                try:
+                    self.reply(200, market_history())
+                except Exception:
+                    self.reply(503, {'error': 'Daily market history (including the S&P 500 benchmark) is unavailable right now.'})
             elif self.path == '/api/crypto':
                 data = crypto.public(crypto.cached())
                 self.reply(200 if data else 404, data or {'error': 'No crypto data yet.'})

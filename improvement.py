@@ -10,6 +10,7 @@ from openpyxl.styles import Alignment, Font
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 BASE = Path(__file__).resolve().parent
+SIMULATION_CAPITAL = 10_000.0
 OUTPUT_COLUMNS = (
     ('Simbol', 'Simbol'), ('Conpanie', 'Companie'), ('Sector', 'Sector'),
     ('Pret actiune', 'Pret actiune'), ('Min. 52 wk', 'Minim 52 sapt.'),
@@ -260,10 +261,11 @@ def investment_workbook(top, source_path, now):
                'Strong Buy', 'Buy', 'Hold', 'Underperform', 'Sell', 'Scor ponderat', 'Diferenta pret-minim (USD)',
                'Ora cotatiei din sursa', 'Moneda', 'Tinta minima (USD)',
                'Diferenta tinta minima-pret (%)', 'Apropiere tinta minima (%)'])
+    per_position = SIMULATION_CAPITAL / len(top) if top else 0.0
     for index, item in enumerate(top, 1):
         row = index+1
-        ws.append([index, item['symbol'], item['Companie'], item['price'], 100,
-                   100/item['price'], 100, 0, item['Strong Buy'], item['Buy'],
+        ws.append([index, item['symbol'], item['Companie'], item['price'], per_position,
+                   per_position/item['price'], per_position, 0, item['Strong Buy'], item['Buy'],
                    item['Hold'], item.get('Underperform'), item['Sell'],
                    item['score'], item['difference'], item.get('quote_time'), item['Moneda'],
                    item['target'], item['target_gap'], item['target_distance']])
@@ -274,9 +276,11 @@ def investment_workbook(top, source_path, now):
             ws.cell(row, col).number_format = '0.00%'
     style_table(ws, 'TabelInvestitii')
     info = wb.create_sheet('Informatii')
+    invested = per_position * len(top)
     for row in [('Camp', 'Valoare'), ('Data simulare', now.isoformat(timespec='seconds')),
                 ('Raport sursa', str(source_path.resolve())), ('Criterii', RULES),
-                ('Numar pozitii', len(top)), ('Capital simulat (USD)', len(top)*100),
+                ('Numar pozitii', len(top)), ('Capital initial (USD)', SIMULATION_CAPITAL),
+                ('Capital investit (USD)', invested), ('Numerar ramas (USD)', SIMULATION_CAPITAL-invested),
                 ('Status', 'SIMULARE; nu sunt trimise ordine si nu sunt cumparate actiuni.'),
                 ('Ipoteze', 'Actiuni fractionare; fara comisioane, taxe sau spread. Preturile sunt cele din raportul sursa, nu cotatii live.'),
                 ('Rezultat initial', 'Profit/pierdere initiala = 0; nu se proiecteaza randamente viitoare.'),
@@ -353,7 +357,7 @@ def process_report(source_path, copy_report=True, now=None, report_path=None):
     export_dashboard(report_path)
     print(f'Raport filtrat: {report_path}')
     print(f'Eligibile: {len(ranked)}; Top: {", ".join(item["symbol"] for item in top) or "niciuna"}')
-    print(f'Simulare: {investment_path}; capital: {100*len(top)} USD')
+    print(f'Simulare: {investment_path}; capital initial: {SIMULATION_CAPITAL:.0f} USD; investit: {SIMULATION_CAPITAL if top else 0:.0f} USD')
     if len(top) < 5:
         print('ATENTIE: mai putin de 5 actiuni eligibile; nu se completeaza cu actiuni care nu respecta filtrul.')
     return report_path, investment_path, ranked

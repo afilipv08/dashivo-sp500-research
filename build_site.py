@@ -53,8 +53,9 @@ def fresh(data, hours):
 
 
 def history(symbols):
-    """One year of daily closes for every symbol, aligned on one date list (keeps the file small)."""
+    """One year of unadjusted daily closes for every symbol plus ^GSPC, aligned on one date list."""
     import yfinance as yf
+    symbols = sorted(set(symbols) | {'^GSPC'})
     frame = yf.download(symbols, period='1y', interval='1d', progress=False, auto_adjust=False, group_by='column', threads=True)['Close']
     dates = [d.strftime('%Y-%m-%d') for d in frame.index]
     series = {}
@@ -150,7 +151,7 @@ def build(refresh=False):
         write_json('ratings.json', rated)
 
     hist = previous('history.json') if refresh else None
-    if refresh and not (hist and fresh(hist, 24)):
+    if refresh and not (hist and fresh(hist, 24) and '^GSPC' in hist.get('series', {})):
         try:
             hist = history(symbols)
         except Exception as exc:

@@ -122,10 +122,15 @@ class ExportTests(unittest.TestCase):
             result.close()
             simulation = load_workbook(investment, data_only=True)
             rows = list(simulation.active.values)[1:]
-            self.assertEqual(sum(row[4] for row in rows), 500)
+            self.assertEqual(sum(row[4] for row in rows), 10_000)
             for row in rows:
-                self.assertAlmostEqual(row[3]*row[5], 100)
+                self.assertAlmostEqual(row[3]*row[5], 2_000)
+                self.assertAlmostEqual(row[6], 2_000)
                 self.assertEqual(row[7], 0)
+            info = simulation['Informatii']
+            self.assertEqual(info['B6'].value, 10_000)
+            self.assertEqual(info['B7'].value, 10_000)
+            self.assertEqual(info['B8'].value, 0)
             simulation.close()
             report2, investment2, _ = improvement.process_report(source, now=now)
             self.assertNotEqual(report, report2)
