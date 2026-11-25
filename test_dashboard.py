@@ -110,7 +110,7 @@ class DashboardTests(unittest.TestCase):
             self.assertIn('52wk low', html)
             self.assertIn("class: 'rng-lb ' + key", html)
             self.assertIn('function sectorRows()', html)
-            self.assertIn('Filter this sector in Top 10 & filters', html)
+            self.assertIn('Filter this sector in Top 10 [filtered]', html)
             self.assertIn('function saveTop10', html)
             self.assertIn('var qrcode = function', html)
             self.assertIn('Views.settings =', html)

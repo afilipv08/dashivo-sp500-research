@@ -51,7 +51,8 @@ other Dashivo dashboards (TaskFlow, SimpleBudget, HabitFlow, Debt Tracker).
   never translated; Excel financial labels (Strong Buy … Sell, Total Analysts, Latest Rating …)
   stay English. Status/issue messages from Python (`dashboard.analyze`, `dashboard_server`) are
   English source for the same reason; per-stock progress lines (`[n/N] SYMBOL: status`) are data.
-- **Pages:** Overview, Run research, Top 10 & filters, Filtered list, Full SP500 list, Methodology,
+- **Pages:** Overview, Run research, Top 10 [filtered] (with the sub-pages Top 10 returns, Filtered list and Simulation
+  results, indented in the menu), Sector analysis, Intrinsic value, eToro, Full SP500 list, AI analysis, Methodology,
   routed in-app (`App.go`) with a first-run tour and a Ctrl/⌘+K palette.
 - **Filters:** a list of optional criteria (`null` = no limit) applied to the full loaded list and
   shared by Overview, Top 10 and Filtered list: thresholds (distance from 52-week low, min Total
@@ -91,7 +92,7 @@ other Dashivo dashboards (TaskFlow, SimpleBudget, HabitFlow, Debt Tracker).
 
 ## AI analysis
 
-- The AI analysis page lists the current Top 10 (same filters and ranking as Top 10 & filters). Each
+- The AI analysis page lists the current Top 10 (same filters and ranking as Top 10 [filtered]). Each
   stock's button opens the chosen assistant in a new tab with the prompt prefilled in the URL
   (ChatGPT `?q=`, Claude `new?q=`, Perplexity `search?q=`; Gemini has no such link, so it gets the
   clipboard only) and also copies the prompt. No API key and no server call: the user's own AI
@@ -168,7 +169,7 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   provider's official Fair Value Calculator SVG embed. `SEC_CONTACT_EMAIL` is supplied to the Pages
   build only as a GitHub Actions secret and is used only in the SEC User-Agent; neither it nor raw SEC
   responses are published. The browser and local server consume the attribution-safe static snapshot.
-- GitHub Actions: `research.yml` every day at 16:00 Europe/Bucharest (five UTC schedules feeding a gate, see Top 10 history) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 history, then publishes; `site.yml` refreshes prices every 30 minutes in US
+- GitHub Actions: `research.yml` every day at 16:00 Europe/Bucharest (five UTC schedules feeding a gate, see Top 10 returns) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 returns, then publishes; `site.yml` refreshes prices every 30 minutes in US
   market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
   `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
 - Yahoo silently throttles cloud runners (quotes come back empty, no 429): `yahoo_unificat.retry_failed`
@@ -185,9 +186,9 @@ Only bot commits touch `Output/` and `Investitii/`, so code changes do not confl
 
 ## Sector analysis
 
-The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived. Selecting a row reveals constituents, and the sector filter action routes to Top 10 & filters.
+The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived. Selecting a row reveals constituents, and the sector filter action routes to Top 10 [filtered].
 
-## Top 10 history
+## Top 10 returns
 
 - After every research run (PC and GitHub) `top10_history.record` stores the day's Top 10 for the three presets
   in `Output/top10_history.json` (committed): one entry per day, latest run of the day wins, with price, proximity,
@@ -197,7 +198,7 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   UTC and can start hours late or be dropped, so five UTC schedules (13, 14, 17, 20 and 22:30) feed a gate that runs
   only after 16:00 Bucharest time and only when `Output/top10_history.json` has no entry for today's date; manual runs
   always execute. This is what closes day gaps without duplicate runs.
-- The Top 10 history page compares each day's picks with the current live price (“since selection”), shows the
+- The Top 10 returns page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
 - Simulation cohorts use each saved Top 5/Top 10 selection and report entry prices, with $10,000 equally
   allocated across eligible picks. The page compares 1-, 2- and 3-calendar-month price returns against the

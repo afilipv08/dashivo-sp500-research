@@ -1,5 +1,5 @@
 'use strict';
-/* ================= Top 10 history: one entry per day per preset (automatic), plus the user's own saves ================= */
+/* ================= Top 10 returns: one entry per day per preset (automatic), plus the user's own saves ================= */
 const HIST = { data: null, error: '', preset: 'default', open: null };
 const MINE_KEY = 'dashivo-sp500-top10-saved';
 const HIST_PRESETS = [['default', 'Default'], ['excel', 'Excel'], ['top5', 'Top 5'], ['mine', 'My saves']];
@@ -36,10 +36,10 @@ Views.history = () => {
   loadHistory();
   const entries = histEntries();
   const seg = h('div', { class: 'seg hist-seg' }, HIST_PRESETS.map(([k, label]) => h('button', { class: HIST.preset === k ? 'on' : '', onclick: () => { HIST.preset = k; HIST.open = null; App.render(); } }, label)));
-  const head = card('Top 10 history', 'Saved automatically after every research run (every day at 16:00 online); “My saves” are the Top 10 lists you saved from Top 10 & filters on this device.',
+  const head = card('Top 10 returns', 'Saved automatically after every research run (every day at 16:00 online); “My saves” are the Top 10 lists you saved from Top 10 [filtered] on this device.',
     h('div', { class: 'row' }, seg, h('span', { class: 'sp' }), btn('Simulation results', 'trend', () => App.go('simulations'), 'sm ghost'), btn('Save current Top 10', 'plus', () => { saveTop10(); App.render(); }, 'sm')));
   if (!HIST.data && HIST.preset !== 'mine') return h('div', null, head, card(null, null, h('div', { class: 'empty' }, 'Loading the history…')));
-  if (!entries.length) return h('div', null, head, card(null, null, h('div', { class: 'empty' }, HIST.preset === 'mine' ? 'No saved Top 10 yet. Use “Save current Top 10” here or on Top 10 & filters.' : 'No days recorded yet.')));
+  if (!entries.length) return h('div', null, head, card(null, null, h('div', { class: 'empty' }, HIST.preset === 'mine' ? 'No saved Top 10 yet. Use “Save current Top 10” here or on Top 10 [filtered].' : 'No days recorded yet.')));
   /* summary: how the picks did since the day they were selected (live price now vs price that day) */
   const dayAvg = entries.map(e => avg(e.items.map(sinceThen)));
   const all = entries.flatMap(e => e.items.map(r => ({ ...r, date: e.date, chg: sinceThen(r) }))).filter(r => num(r.chg));

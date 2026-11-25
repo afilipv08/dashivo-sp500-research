@@ -106,7 +106,8 @@ async function loadLivePrices() {
 /* [route, label, icon, group, section]; section 'all' = shown in both Stock market and Crypto */
 const NAV = [
   ['overview', 'Overview', 'grid', 'SP500', 'stock'], ['research', 'Run research', 'play', 'SP500', 'stock'],
-  ['top10', 'Top 10 & filters', 'filter', 'SP500', 'stock'], ['sectors', 'Sector analysis', 'layers', 'SP500', 'stock'], ['history', 'Top 10 history', 'sched', 'SP500', 'stock'], ['simulations', 'Simulation results', 'trend', 'SP500', 'stock'], ['intrinsic', 'Intrinsic value', 'matrix', 'SP500', 'stock'], ['etoro', 'eToro', 'trend', 'SP500', 'stock'], ['filtered', 'Filtered list', 'list', 'SP500', 'stock'], ['universe', 'Full SP500 list', 'table', 'SP500', 'stock'],
+  ['top10', 'Top 10 [filtered]', 'filter', 'SP500', 'stock'], ['history', 'Top 10 returns', 'sched', 'SP500', 'stock', 'child'], ['filtered', 'Filtered list', 'list', 'SP500', 'stock', 'child'], ['simulations', 'Simulation results', 'trend', 'SP500', 'stock', 'child'],
+  ['sectors', 'Sector analysis', 'layers', 'SP500', 'stock'], ['intrinsic', 'Intrinsic value', 'matrix', 'SP500', 'stock'], ['etoro', 'eToro', 'trend', 'SP500', 'stock'], ['universe', 'Full SP500 list', 'table', 'SP500', 'stock'],
   ['ai', 'AI analysis', 'spark', 'SP500', 'stock'], ['method', 'Methodology', 'book', 'SP500', 'stock'],
   ['portfolio', 'Portfolio', 'wallet', 'PORTFOLIO', 'stock'],
   ['crypto', 'Crypto Top 10', 'coin', 'CRYPTO', 'crypto'], ['levels', 'Key levels', 'layers', 'CRYPTO', 'crypto'], ['cycles', 'BTC cycles', 'cycle', 'CRYPTO', 'crypto'], ['xsent', 'X & sentiment', 'xlogo', 'CRYPTO', 'crypto'],
@@ -119,8 +120,8 @@ const SECTIONS = { stock: { label: 'Stock market', home: 'overview', icon: 'tren
 const SECTION_KEY = 'dashivo-sp500-section';
 const TITLES = {
   overview: ['Overview', 'Price, recommendations and targets · local dashboard'], sectors: ['Sector analysis', 'Compare all 11 sectors and explore their constituents'], research: ['Run research', 'Yahoo Finance download and Excel import'],
-  top10: ['Top 10 & filters', 'Editable thresholds and the ten best-ranked stocks'], intrinsic: ['Intrinsic value', 'Three attributed external estimates and three transparent methods for the current Top 10'], etoro: ['eToro', 'Official eToro pages for the current Top 10'], filtered: ['Filtered list', 'All Excel columns for the active selection'],
-  universe: ['Full SP500 list', 'Every queried stock, with search and sorting'], crypto: ['Crypto Top 10', 'The 10 largest cryptocurrencies by market cap'], levels: ['Key levels', 'Supports and resistances where price tends to turn'], cycles: ['BTC cycles', 'Bitcoin halving cycles from the full price history'], xsent: ['X & sentiment', 'Influential posts on X, Fear & Greed and AI summaries'], history: ['Top 10 history', 'What the Top 10 was on each day, and how it did since'], simulations: ['Simulation results', 'Top 5 and Top 10 vs the S&P 500 at 1, 2 and 3 months'], ai: ['AI analysis', 'One prompt per Top 10 stock, opened in your AI assistant'], settings: ['Settings', 'AI prompt and assistant'], portfolio: ['Portfolio', 'Demo account · simulated investments, no real money'], method: ['Methodology', 'How the numbers are calculated']
+  top10: ['Top 10 [filtered]', 'Editable thresholds and the ten best-ranked stocks'], intrinsic: ['Intrinsic value', 'Three attributed external estimates and three transparent methods for the current Top 10'], etoro: ['eToro', 'Official eToro pages for the current Top 10'], filtered: ['Filtered list', 'All Excel columns for the active selection'],
+  universe: ['Full SP500 list', 'Every queried stock, with search and sorting'], crypto: ['Crypto Top 10', 'The 10 largest cryptocurrencies by market cap'], levels: ['Key levels', 'Supports and resistances where price tends to turn'], cycles: ['BTC cycles', 'Bitcoin halving cycles from the full price history'], xsent: ['X & sentiment', 'Influential posts on X, Fear & Greed and AI summaries'], history: ['Top 10 returns', 'What the Top 10 was on each day, and how it did since'], simulations: ['Simulation results', 'Top 5 and Top 10 vs the S&P 500 at 1, 2 and 3 months'], ai: ['AI analysis', 'One prompt per Top 10 stock, opened in your AI assistant'], settings: ['Settings', 'AI prompt and assistant'], portfolio: ['Portfolio', 'Demo account · simulated investments, no real money'], method: ['Methodology', 'How the numbers are calculated']
 };
 function openPalette() {
   const p = $('#pal'); p.innerHTML = ''; p.classList.add('on'); $('#back').classList.add('on');
@@ -179,7 +180,7 @@ const App = {
     $('#side').append(h('div', { class: 'brand' }, h('div', { class: 'brand-logo' }, brandImg()), h('div', { class: 'brand-app' }, 'SP500 RESEARCH')), sectionSwitch,
       h('nav', { class: 'nav', 'aria-label': 'Dashboard navigation' }, groups.map(([g, ns]) => {
         const sec = ns.every(n => n[4] === ns[0][4]) ? ns[0][4] : 'all', tree = NAV_TREE[g];
-        const links = ns.map(n => h('a', { href: '#/' + n[0], 'data-r': n[0], 'data-sec': n[4], onclick: e => { e.preventDefault(); App.go(n[0]); }, html: svgIcon(n[2]) + '<span>' + n[1] + '</span>' }, h('span', { class: 'cnt notr', 'data-r': n[0] })));
+        const links = ns.map(n => h('a', { href: '#/' + n[0], class: n[5] || null, 'data-r': n[0], 'data-sec': n[4], onclick: e => { e.preventDefault(); App.go(n[0]); }, html: svgIcon(n[2]) + '<span>' + n[1] + '</span>' }, h('span', { class: 'cnt notr', 'data-r': n[0] })));
         if (!tree) return h('div', { class: 'nav-grp', 'data-sec': sec }, h('div', { class: 'nav-g' }, g), links);
         let folded = false; try { folded = (JSON.parse(localStorage.getItem(NAV_FOLD_KEY)) || []).includes(g); } catch (e) { }
         const grp = h('div', { class: 'nav-grp tree' + (folded ? ' folded' : ''), 'data-sec': sec });

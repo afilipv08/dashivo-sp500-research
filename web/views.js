@@ -114,7 +114,7 @@ Views.sectors = () => {
     h('tbody', null, [...selected.rows].sort((a,b) => (b.weighted ?? -1) - (a.weighted ?? -1)).map(r => { const live = num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null;
       return h('tr', null, h('td', { class: 'sym-cell' }, logoEl(r.symbol, 22), h('div', null, h('b', { class: 'notr' }, r.symbol), h('div', { class: 'muted small notr' }, r.company))),
         h('td', { class: 'notr ' + (live == null ? '' : live >= 0 ? 'positive' : 'negative') }, signedSector(live)), h('td', { class: 'notr' }, pctf(r.support)), h('td', { class: 'notr' }, nf(r.total)), h('td', { class: 'notr ' + (r.upside < 0 ? 'negative' : 'positive') }, pctf(r.upside)), h('td', { class: 'notr' }, pctf(r.gap))); })))),
-    btn('Filter this sector in Top 10 & filters', 'filter', () => { UI.f.sectors = [selected.name]; saveFilters(); App.go('top10'); }, 'sm'), 'c12') : null;
+    btn('Filter this sector in Top 10 [filtered]', 'filter', () => { UI.f.sectors = [selected.name]; saveFilters(); App.go('top10'); }, 'sm'), 'c12') : null;
   const liveMissing = universe().length - Object.keys(LIVE.prices || {}).filter(s => universe().some(r => r.symbol === s)).length;
   return h('div', null,
     h('div', { class: 'banner' }, icon('alert', 18), h('b', null, 'All sectors · full SP500 universe'), h('span', null, DATA.sourceDate), h('span', { class: 'muted' }, 'Top 10 filters do not affect this comparison.')),
@@ -141,7 +141,7 @@ Views.overview = () => {
       card('Sector mix', 'Stocks in the filtered list, by sector', mix.length ? donut(mix, { label: 'stocks', onSelect: d => { UI.f.sectors = [d.label]; saveFilters(); App.go('top10'); } }) : h('div', { class: 'empty' }, 'No stocks in the selection.'), null, 'c7'),
       card('Top 5', RANKINGS[UI.ranking].label, top.length ? h('div', { class: 'tl' }, top.slice(0, 5).map((r, i) => h('div', { class: 'ti', style: { '--c': 'var(--accent)' }, onclick: () => App.go('top10') },
         h('span', { class: 'rk' }, i + 1), logoEl(r.symbol, 28), h('div', { style: { flex: 1, minWidth: 0 } }, h('div', { class: 'nm notr' }, r.symbol + ' · ' + r.company), h('div', { class: 'sub notr' }, r.sector)), h('b', { class: 'notr' }, usd(r.price))))) : h('div', { class: 'empty' }, 'No valid ranking values.'),
-        btn('Top 10 & filters', 'right', () => App.go('top10'), 'sm ghost'), 'c5'),
+        btn('Top 10 [filtered]', 'right', () => App.go('top10'), 'sm ghost'), 'c5'),
       card('Recommendations in the selection', 'All analyst ratings of the filtered stocks · hover a segment', (() => {
         const tot = k => sel.reduce((a, r) => a + (num(r[k]) ? r[k] : 0), 0);
         const data = REC.map(([k, , long, c]) => ({ label: long, value: tot(k), color: c })).filter(d => d.value > 0);
@@ -186,7 +186,7 @@ Views.research = () => h('div', { class: 'grid' },
     h('p', { id: 'importStatus', role: 'status', 'aria-live': 'polite' }, IMPORT.message),
     h('p', { id: 'importError', class: 'negative', role: 'alert' }, IMPORT.error)), null, 'c12'));
 
-/* ---------- Top 10 & filters ---------- */
+/* ---------- Top 10 [filtered] ---------- */
 const exBadge = key => h('span', { class: 'ex notr', id: 'ex-' + key });
 function numInput(value, onValue, { id, step = '1', placeholder = '', integer = true, key }) {
   const i = h('input', { class: 'in', id, type: 'number', min: '0', step, placeholder, value: value ?? '' });
@@ -299,7 +299,7 @@ function refreshTop() {
 Views.filtered = () => {
   const sel = selection();
   if (!sel) return card(null, null, h('div', { class: 'empty' }, 'Enter valid non-negative thresholds; analyst and recommendation counts must be integers.'));
-  return card('Filtered list · all Excel columns', 'Click a header to sort. Thresholds, search and sector are set on the Top 10 & filters page.', h('div', null,
+  return card('Filtered list · all Excel columns', 'Click a header to sort. Thresholds, search and sector are set on the Top 10 [filtered] page.', h('div', null,
     h('div', { class: 'row', style: { marginBottom: '12px' } }, h('div', { class: 'chips' }, criteriaChips()), h('span', { class: 'sp' }),
       liveStatus(), h('span', { class: 'badge', id: 'tableCount' }, sel.length + ' rows'),
  btn('Export selection CSV', 'dl', () => exportCsv(sel, 'Selection'), 'sm')),
