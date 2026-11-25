@@ -52,10 +52,11 @@ function ivSourceCell(source, symbol, kind) {
 }
 function ivFvcCell(symbol, template) {
   const url = (template || 'https://www.fairvalue-calculator.com/embed/{}.svg').replace('{}', encodeURIComponent(symbol));
+  const page = 'https://www.fairvalue-calculator.com/stock/' + encodeURIComponent(symbol) + '?utm_source=embed&utm_medium=badge';
   const image = h('img', { class: 'iv-fvc', src: url, alt: tr('Fair Value Calculator per-share estimate for') + ' ' + symbol,
     loading: 'lazy', referrerpolicy: 'no-referrer' });
   image.addEventListener('error', () => image.replaceWith(ivUnavailable(tr('Fair Value Calculator has no available embed for this stock.'))), { once: true });
-  return h('td', null, ivLink(image, url, 'iv-fvc-link'));
+  return h('td', null, ivLink(image, page, 'iv-fvc-link'));
 }
 function ivLivePrice(stock) {
   const live = LIVE.prices?.[stock.symbol];

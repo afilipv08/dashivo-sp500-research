@@ -161,7 +161,7 @@ def calculate_methods(companyfacts, assumptions=None):
     dividend = _annual_fact(companyfacts, ['CommonStockDividendsPerShareDeclared'], ['USD/shares', 'USD / shares'])
 
     methods = {}
-    fcf = cfo['value'] - capex['value'] if cfo and capex else None
+    fcf = cfo['value'] - abs(capex['value']) if cfo and capex else None
     share_count = shares['value'] if shares else None
     g, r, terminal, years = a['dcf_growth'], a['discount_rate'], a['terminal_growth'], int(a['years'])
     reason = None
@@ -246,7 +246,7 @@ def build_payload(symbols, previous=None, contact_email=None):
     previous = previous if isinstance(previous, dict) else {}
     previous_sources = previous.get('sources') or {}
     previous_sec = previous_sources.get('sec') or {}
-    sec_needs_refresh = bool(contact_email) and previous_sec.get('status') in ('contact_required', 'unavailable', 'rate_limited', None)
+    sec_needs_refresh = bool(contact_email) and previous_sec.get('status') == 'contact_required'
     try:
         at = datetime.fromisoformat(previous.get('at', '')).timestamp()
         if time.time() - at < 24 * 3600 and not sec_needs_refresh:
