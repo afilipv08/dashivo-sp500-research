@@ -235,6 +235,16 @@ skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 
 source requests in that build; the current snapshot is retained and the next refresh waits for its
 24-hour cache window.
 
+## Technical analysis
+
+The Technical analysis page (`web/technical.js`) is computed in the browser from the published daily closes
+(`market-history`) for the current Top 10 of the active filters; no new data source and nothing is estimated. Six rules
+vote +1/0/−1: price vs SMA50, price vs SMA200, SMA50 vs SMA200, RSI14 (Wilder; <30 up, >70 down), MACD 12/26/9
+histogram and 3-month momentum. The verdict is the sum of the available votes (≥ +3 bullish, ≤ −3 bearish, otherwise mixed;
+fewer than four available rules = not enough data), with a one-line summary and a hover breakdown. Only closing prices
+are used (no volume, highs or lows), and results are descriptive, not forecasts; the SMA200 rule needs 200 closes.
+The thresholds are baseline choices, unconfirmed by the user.
+
 ## eToro links
 
 The eToro page uses the active filters and ranking to show official asset-page links for the current
