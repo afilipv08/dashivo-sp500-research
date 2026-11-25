@@ -211,6 +211,8 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   S&P 500; it uses the first available close on/after each endpoint, and shows future or unavailable results
   as pending/missing rather than estimating them. Dividends, fees and taxes are excluded; the daily index
   close is an approximation to the report's intraday stock prices.
+  Each cohort row expands to its picks with entry price, latest available close and the return since selection,
+  plus the S&P 500 since the selection day, so every day's selection can be followed individually.
 
 ## Intrinsic value
 

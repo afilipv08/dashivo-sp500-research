@@ -1,6 +1,6 @@
 'use strict';
 /* ================= Forward performance of saved Top 5 / Top 10 cohorts vs the S&P 500 ================= */
-const SIM_VIEW = { history: null, market: null, loading: false, error: '', preset: 'top5', horizon: 1 };
+const SIM_VIEW = { history: null, market: null, loading: false, error: '', preset: 'top5', horizon: 1, open: null };
 const SIM_OPTIONS = [['top5', 'Top 5 Investitii'], ['default', 'Default Top 10'], ['excel', 'Excel Top 10']];
 const SIM_PERIODS = [1, 2, 3];
 function simAddMonths(day, count) {
@@ -67,6 +67,25 @@ function simValueCell(o) {
     h('small', { class: 'notr ' + plClass(o.excess) }, tr('Excess') + ' ' + signedPct(o.excess)),
     h('small', { class: 'muted notr' }, tr('Close') + ' ' + o.exitDate));
 }
+/* where a cohort stands today: every pick against the latest available close, plus the S&P 500 since selection */
+function simToDate(day, simulation) {
+  const market = SIM_VIEW.market, dates = market?.dates || [];
+  const last = symbol => { const v = market?.series?.[symbol]; if (!v) return null; for (let i = dates.length - 1; i >= 0; i--) if (num(v[i]) && v[i] > 0) return { price: v[i], date: dates[i] }; return null; };
+  const rows = (simulation?.positions || []).map(p => { const q = last(p.symbol); return { ...p, close: q?.price ?? null, closeDate: q?.date ?? null, change: q && p.entryPrice > 0 ? q.price / p.entryPrice - 1 : null, value: q ? p.shares * q.price : null }; });
+  const known = rows.filter(r => num(r.value)), invested = rows.reduce((a, r) => a + r.allocation, 0);
+  const start = simClose(market, '^GSPC', day.date, 'before'), now = last('^GSPC');
+  return { rows, portfolio: known.length === rows.length && rows.length ? known.reduce((a, r) => a + r.value, 0) / invested - 1 : null,
+    benchmark: start && now ? now.price / start.price - 1 : null, asOf: now?.date || null };
+}
+function simDetail(r) {
+  const t = simToDate(r.day, r.sim);
+  return h('tr', { class: 'sim-detail' }, h('td', { colspan: 4 + SIM_PERIODS.length },
+    h('div', { class: 'sim-detail-head' }, h('b', null, tr('Since selection') + (t.asOf ? ' · ' + tr('close') + ' ' + t.asOf : '')),
+      h('span', { class: 'notr ' + plClass(t.portfolio) }, tr('Portfolio') + ' ' + signedPct(t.portfolio)), h('span', { class: 'notr ' + plClass(t.benchmark) }, 'S&P 500 ' + signedPct(t.benchmark))),
+    h('table', { class: 'pf-tbl' }, h('thead', null, h('tr', null, [tr('Symbol'), tr('Entry price'), tr('Latest close'), tr('Since selection'), tr('Allocation')].map(x => h('th', null, x)))),
+      h('tbody', null, t.rows.map(p => h('tr', null, h('td', null, h('div', { class: 'sym-cell' }, logoEl(p.symbol, 20), h('b', { class: 'notr' }, p.symbol))), h('td', { class: 'notr' }, usd(p.entryPrice)),
+        h('td', { class: 'notr' }, num(p.close) ? usd(p.close) + ' · ' + p.closeDate : '—'), h('td', { class: 'notr' }, h('span', { class: 'plpill ' + plClass(p.change) }, signedPct(p.change))), h('td', { class: 'notr' }, simCash(p.allocation))))))));
+}
 Views.simulations = () => {
   loadSimulations();
   const heading = card(tr('Simulation results'), tr('Each research day is a separate equal-weighted cohort. Top 5 Investitii uses the first five picks; other presets use their Top 10. Starting capital is $10,000. Compares price changes with the S&P 500 index; dividends, fees and taxes are excluded.'),
@@ -90,10 +109,10 @@ Views.simulations = () => {
   const periodButtons = h('div', { class: 'seg sim-periods' }, SIM_PERIODS.map(m => h('button', { class: SIM_VIEW.horizon === m ? 'on' : '', onclick: () => { SIM_VIEW.horizon = m; App.render(); } }, m + ' ' + tr(m === 1 ? 'month' : 'months'))));
   const table = h('div', { class: 'tbl-wrap sim-table' }, h('table', { class: 'sp-tbl' },
     h('thead', null, h('tr', null, [tr('Selection date'), tr('Report'), tr('Stocks'), tr('Capital'), ...SIM_PERIODS.map(m => m + ' ' + tr(m === 1 ? 'month' : 'months'))].map(x => h('th', null, x)))),
-    h('tbody', null, rows.map(r => h('tr', null,
+    h('tbody', null, rows.flatMap(r => [h('tr', { class: 'sim-row-click' + (SIM_VIEW.open === r.day.date ? ' open' : ''), tabindex: 0, title: tr('Show the stocks of this cohort'), onclick: () => { SIM_VIEW.open = SIM_VIEW.open === r.day.date ? null : r.day.date; App.render(); } },
       h('td', { class: 'notr' }, simDayLabel(r.day.date)), h('td', { class: 'notr small' }, r.day.report || '—'),
       h('td', { class: 'notr' }, String(r.sim?.positions?.length || 0)), h('td', { class: 'notr' }, simCash(r.sim?.capital)),
-      ...r.outcomes.map(o => h('td', null, simValueCell(o))))))));
+      ...r.outcomes.map(o => h('td', null, simValueCell(o)))), ...(SIM_VIEW.open === r.day.date ? [simDetail(r)] : [])]))));
   return h('div', null, heading, h('div', { class: 'kpis sim-kpis' }, ...summaries), h('div', { class: 'row mt sim-row' }, h('b', null, tr('Return chart')), h('span', { class: 'sp' }), periodButtons), chart,
     card(tr('Cohort results'), tr('The first close on or after each 1/2/3-calendar-month date is used. Benchmark baseline uses the last S&P 500 close on or before selection day; selection prices come from the report.'), table, null, 'c12'),
     h('p', { class: 'muted small mt' }, tr('Price return only. No dividends, commissions, taxes or slippage. S&P 500 baseline is a daily close, so it is approximate to the intraday report quote. Not investment advice.')));

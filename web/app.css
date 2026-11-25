@@ -319,3 +319,4 @@ a.btn{text-decoration:none}
 .cal-n{font-size:11px;color:var(--muted);font-weight:700}.cal-v{font-size:13px;font-weight:800;align-self:flex-end}
 .cal-cell.up .cal-v{color:var(--good)}.cal-cell.down .cal-v{color:var(--bad)}
 @media(max-width:700px){.cal-grid{gap:3px}.cal-cell{min-height:56px;padding:5px}.cal-v{font-size:10px}}
+.sim-row-click{cursor:pointer}.sim-row-click:hover td{background:var(--tint1)}.sim-row-click.open td{background:var(--accent-soft)}.sim-detail td{padding:12px 14px;background:var(--tint1)}.sim-detail-head{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px;font-size:12px}.sim-detail .pf-tbl{width:100%}
