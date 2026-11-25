@@ -233,6 +233,7 @@ function presetBar() {
       store.set(PRESETS_KEY, [...mine.filter(p => p.name !== name), { name, f: UI.f, ranking: UI.ranking }]); toast('Preset saved'); App.render();
     }, null, () => tipHtml('+ Save current filters', [], 'Saves the current thresholds, ranges, consensus, sectors and ranking under a name of your choice.')));
 }
+const reportWhen = () => { const m = /^(\d{2}) (\d{2}) (\d{4}) (\d{2})-(\d{2})/.exec(DATA.sourceDate || ''); return m ? m[1] + '.' + m[2] + '.' + m[3] + ' · ' + m[4] + ':' + m[5] : null; };
 Views.top10 = () => {
   const f = UI.f;
   /* compact threshold: short label + input + "−N" badge; the long label stays as the tooltip */
@@ -254,7 +255,10 @@ Views.top10 = () => {
     h('div', { class: 'fgrid4 fsec' }, rng('price', 'Price $', '0.01'), rng('upside', 'Upside %'), rng('support', 'SB+B %'), rng('gap', 'To min. %')),
     h('div', { class: 'fsec' }, hoverTip(h('div', { class: 'fl has-tip' }, h('div', { class: 'up' }, 'Consensus'), exBadge('consensus')), filterTip('consensus')), toggles('consensus', CONSENSUS)),
     h('div', { class: 'fsec' }, hoverTip(h('div', { class: 'fl has-tip' }, h('div', { class: 'up' }, 'Sectors'), exBadge('sectors')), filterTip('sectors')), toggles('sectors', sectors())));
+  const researched = reportWhen();
   return h('div', null,
+    researched ? h('div', { class: 'banner', id: 'researchStamp' }, icon('sched', 18), h('b', null, 'Last research run'), dataText(researched),
+      h('span', { class: 'muted' }, 'The Top 10 uses this report; live prices update separately.')) : null,
     h('section', { class: 'card fbar' },
       h('div', { class: 'fbar-row' }, presetBar()),
       h('div', { class: 'fbar-row' },

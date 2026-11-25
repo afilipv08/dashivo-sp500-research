@@ -111,7 +111,7 @@ function siteResearchCard() {
   siteMeta().then(x => { if (x !== m && App.route() === 'research') App.render(); });
   const row = (label, value) => h('div', null, h('small', null, label), h('b', { class: 'notr' }, value || '—'));
   return card('Run the SP500 research', 'In the online version the research runs on GitHub servers: automatically every day at 16:00, or now from the button. It takes about 10 minutes; the site updates itself when it finishes.', h('div', null,
-    h('div', { class: 'ind-grid' }, row('Current report', DATA.sourceDate), row('Last research run', m.reportAt ? when(m.reportAt) : null), row('Prices updated', m.pricesAt ? when(m.pricesAt) : null), row('Next automatic run', tr('Monday–Friday') + ' · 16:00')),
+    h('div', { class: 'ind-grid' }, row('Current report', DATA.sourceDate), row('Last research run', m.reportAt ? when(m.reportAt) : null), row('Prices updated', m.pricesAt ? when(m.pricesAt) : null), row('Next automatic run', tr('Every day') + ' · 16:00')),
     h('div', { class: 'row mt' }, m.workflowUrl ? h('a', { class: 'btn pri', href: m.workflowUrl, target: '_blank', rel: 'noopener' }, icon('play'), h('span', null, 'Start the research on GitHub')) : null,
       m.repoUrl ? h('a', { class: 'btn', href: m.repoUrl + '/tree/main/Output', target: '_blank', rel: 'noopener' }, icon('file'), h('span', null, 'All Excel reports')) : null),
     h('p', { class: 'muted small' }, 'On the GitHub page tap “Run workflow”, then “Run workflow” again. You need to be signed in to GitHub.')), null, 'c12');

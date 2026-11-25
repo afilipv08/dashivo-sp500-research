@@ -63,6 +63,8 @@ other Dashivo dashboards (TaskFlow, SimpleBudget, HabitFlow, Debt Tracker).
   search, ranking) with ranges / consensus / sectors under a collapsed “Advanced filters”. Cards are
   small (3 per row): one price axis (52-week band, price, min / mean / max targets), a recommendation
   bar with shares written inside, four short stats. The same card is the portfolio hover card.
+  A banner above the filters shows the date and time of the research behind the report (parsed from the report
+  file name, hidden when unknown); live prices are timestamped separately.
 - **Logos** load from financialmodelingprep.com by symbol with a colored monogram fallback (offline
   or missing); a few symbols return a blank image that the browser cannot detect. Sectors use 11
   GICS line icons. `dashboard.PAYLOAD_SCHEMA` versions the JSON snapshot so a field change
