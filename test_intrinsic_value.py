@@ -14,7 +14,9 @@ class IntrinsicValueTests(unittest.TestCase):
             'rows': [{'ticker': 'ABC', 'model_fair_value_estimate': 42.5,
                       'price_at_last_recompute': 40, 'last_recomputed': '2026-11-25T08:00:00+00:00'},
                      {'ticker': 'NONE', 'model_fair_value_estimate': None}]})
-        self.assertEqual(parsed['rows']['ABC'], {'value': 42.5, 'price': 40, 'asOf': '2026-11-25T08:00:00+00:00', 'reason': None})
+        abc = parsed['rows']['ABC']
+        self.assertEqual({k: abc[k] for k in ('value', 'price', 'asOf', 'reason')}, {'value': 42.5, 'price': 40, 'asOf': '2026-11-25T08:00:00+00:00', 'reason': None})
+        self.assertIsNone(abc['strengthScore'])
         self.assertIsNone(parsed['rows']['NONE']['value'])
         self.assertTrue(parsed['rows']['NONE']['reason'])
 
@@ -67,13 +69,31 @@ class IntrinsicValueTests(unittest.TestCase):
         self.assertEqual(payload['sources']['sec']['status'], 'not_requested')
 
     def test_fresh_cache_is_reused_without_network(self):
-        previous = {'at': datetime.now(timezone.utc).isoformat(),
+        previous = {'schema': intrinsic_value.PAYLOAD_SCHEMA, 'at': datetime.now(timezone.utc).isoformat(),
                     'sources': {'sec': {'status': 'contact_required', 'rows': {}}}}
         with patch.object(intrinsic_value, '_request', side_effect=AssertionError('network should not run')):
             self.assertIs(intrinsic_value.build_payload(['AAPL'], previous=previous), previous)
 
+    def test_fresh_cache_with_an_older_schema_is_rebuilt(self):
+        previous = {'at': datetime.now(timezone.utc).isoformat(), 'sources': {'sec': {'status': 'contact_required', 'rows': {}}}}
+        with patch.object(intrinsic_value, '_request', side_effect=intrinsic_value.RateLimited()) as request:
+            payload = intrinsic_value.build_payload(['AAPL'], previous=previous)
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(payload['schema'], intrinsic_value.PAYLOAD_SCHEMA)
+
+    def test_fundamental_fields_are_kept_for_the_fundamental_page(self):
+        csv_text = ('snapshot_date,symbol,industry,intrinsic_value_usd,market_cap_usd,price_usd,record_computed_utc,roe_pct,roic_pct,'
+                    'free_cash_flow_ttm_usd,revenue_ttm_usd,net_income_ttm_usd,eps_diluted_ttm_usd,fundamental_growth_rate_pct,zyberno_score\n'
+                    '2026-11-01,ABC,Software,500,1000,20,2026-10-30,21.5,14.2,120,1000,200,4.0,6.5,77\n')
+        z = intrinsic_value.parse_zyberno_csv(csv_text)['rows']['ABC']
+        self.assertEqual((z['roe'], z['roic'], z['fcf'], z['revenue'], z['netIncome'], z['eps'], z['growth'], z['score'], z['industry']),
+                         (21.5, 14.2, 120.0, 1000.0, 200.0, 4.0, 6.5, 77.0, 'Software'))
+        er = intrinsic_value.parse_equity_rank({'rows': [{'ticker': 'ABC', 'model_fair_value_estimate': 10, 'fundamental_strength_score': 63,
+                                                          'fundamental_strength_grade': 'B-', 'equity_rank_score': 51.5, 'models_above_price': 2, 'models_total': 9}]})['rows']['ABC']
+        self.assertEqual((er['strengthScore'], er['strengthGrade'], er['rankScore'], er['modelsAbove'], er['modelsTotal']), (63, 'B-', 51.5, 2, 9))
+
     def test_fresh_rate_limited_cache_is_not_retried_within_24_hours(self):
-        previous = {'at': datetime.now(timezone.utc).isoformat(),
+        previous = {'schema': intrinsic_value.PAYLOAD_SCHEMA, 'at': datetime.now(timezone.utc).isoformat(),
                     'sources': {'sec': {'status': 'rate_limited', 'rows': {}}}}
         with patch.object(intrinsic_value, '_request', side_effect=AssertionError('do not retry a 429')):
             self.assertIs(intrinsic_value.build_payload(['AAPL'], previous=previous,

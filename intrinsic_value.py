@@ -19,6 +19,7 @@ ZYBERNO_URL = ('https://huggingface.co/datasets/Zyberno/us-equity-valuation-cros
 SEC_TICKERS_URL = 'https://www.sec.gov/files/company_tickers_exchange.json'
 SEC_FACTS_URL = 'https://data.sec.gov/api/xbrl/companyfacts/CIK{:010d}.json'
 FVC_EMBED_URL = 'https://www.fairvalue-calculator.com/embed/{}.svg'
+PAYLOAD_SCHEMA = 2   # bump when published fields change so a fresh cache without them is rebuilt
 ASSUMPTIONS = {'dcf_growth': 0.05, 'terminal_growth': 0.025, 'discount_rate': 0.09, 'years': 5,
                'graham_multiplier': 22.5, 'ddm_required_return': 0.09}
 
@@ -59,6 +60,9 @@ def parse_equity_rank(payload):
             rows[symbol] = {'value': value if value is not None and value > 0 else None,
                             'price': _number(row.get('price_at_last_recompute')),
                             'asOf': row.get('last_recomputed') or meta.get('batch_last_recomputed'),
+                            'strengthScore': _number(row.get('fundamental_strength_score')), 'strengthGrade': row.get('fundamental_strength_grade') or None,
+                            'rankScore': _number(row.get('equity_rank_score')), 'modelsAbove': _number(row.get('models_above_price')),
+                            'modelsTotal': _number(row.get('models_total')),
                             'reason': None if value is not None and value > 0 else 'Provider has no usable blended estimate for this ticker.'}
     return {'status': 'available' if rows else 'empty', 'at': meta.get('batch_last_recomputed') or meta.get('generated_at'),
             'url': EQUITY_RANK_URL, 'rows': rows}
@@ -82,6 +86,10 @@ def parse_zyberno_csv(text):
         rows[symbol] = {'value': per_share if per_share and math.isfinite(per_share) and per_share > 0 else None,
                         'companyValue': intrinsic, 'marketCap': market_cap, 'sourcePrice': price,
                         'impliedShares': implied_shares, 'asOf': row.get('record_computed_utc'),
+                        'industry': row.get('industry') or None, 'roe': _to_float(row.get('roe_pct')), 'roic': _to_float(row.get('roic_pct')),
+                        'fcf': _to_float(row.get('free_cash_flow_ttm_usd')), 'revenue': _to_float(row.get('revenue_ttm_usd')),
+                        'netIncome': _to_float(row.get('net_income_ttm_usd')), 'eps': _to_float(row.get('eps_diluted_ttm_usd')),
+                        'growth': _to_float(row.get('fundamental_growth_rate_pct')), 'score': _to_float(row.get('zyberno_score')),
                         'snapshotDate': row.get('snapshot_date'),
                         'reason': None if per_share and math.isfinite(per_share) and per_share > 0 else 'Required company value, market capitalization, or source price is missing.'}
     return {'status': 'available' if rows else 'empty', 'at': snapshot, 'url': ZYBERNO_URL, 'rows': rows}
@@ -249,7 +257,7 @@ def build_payload(symbols, previous=None, contact_email=None):
     sec_needs_refresh = bool(contact_email) and previous_sec.get('status') == 'contact_required'
     try:
         at = datetime.fromisoformat(previous.get('at', '')).timestamp()
-        if time.time() - at < 24 * 3600 and not sec_needs_refresh:
+        if time.time() - at < 24 * 3600 and not sec_needs_refresh and previous.get('schema') == PAYLOAD_SCHEMA:
             return previous
     except (ValueError, TypeError, OSError):
         pass
@@ -291,5 +299,5 @@ def build_payload(symbols, previous=None, contact_email=None):
     if sources['sec']['status'] in ('unavailable', 'rate_limited', 'contact_required') and previous_sec.get('rows'):
         sources['sec'] = {**previous_sec, 'status': 'stale', 'staleSince': datetime.now(timezone.utc).isoformat(timespec='seconds')}
 
-    return {'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'assumptions': ASSUMPTIONS,
+    return {'schema': PAYLOAD_SCHEMA, 'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'assumptions': ASSUMPTIONS,
             'sources': sources, 'fvcEmbedUrl': FVC_EMBED_URL}

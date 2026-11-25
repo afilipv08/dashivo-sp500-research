@@ -43,7 +43,7 @@ function techAnalyse(points) {
     { key: 'Price vs SMA50', vote: sma50 == null ? null : price > sma50 ? 1 : -1, detail: sma50 == null ? null : usd1(price) + ' vs ' + usd1(sma50) },
     { key: 'Price vs SMA200', vote: sma200 == null ? null : price > sma200 ? 1 : -1, detail: sma200 == null ? null : usd1(price) + ' vs ' + usd1(sma200) },
     { key: 'SMA50 vs SMA200', vote: sma50 == null || sma200 == null ? null : sma50 > sma200 ? 1 : -1, detail: sma50 == null || sma200 == null ? null : usd1(sma50) + ' vs ' + usd1(sma200) },
-    { key: 'RSI 14', vote: rsi == null ? null : rsi < 30 ? 1 : rsi > 70 ? -1 : 0, detail: rsi == null ? null : nf(rsi, 0) + ' (<30 oversold, >70 overbought)' },
+    { key: 'RSI 14', vote: rsi == null ? null : rsi < 30 ? 1 : rsi > 70 ? -1 : 0, detail: rsi == null ? null : nf(rsi, 0) },
     { key: 'MACD histogram', vote: macd == null ? null : macd.hist > 0 ? 1 : -1, detail: macd == null ? null : nf(macd.hist, 2) },
     { key: '3-month momentum', vote: r3 == null ? null : r3 > 0 ? 1 : -1, detail: signedPct(r3) }
   ];
@@ -84,5 +84,6 @@ Views.technical = () => {
       h('td', null, t ? hoverTip(h('span', { class: 'tech-verdict ' + t.verdict }, tr(TECH_LABELS[t.verdict])), () => techTip(stock.symbol, t)) : '—'),
       h('td', { class: 'tech-sum' }, tr(techConclusion(t))))))));
   return h('div', null, heading, kpis, card(null, null, table, null, 'c12'),
+    h('p', { class: 'muted small mt' }, tr('Votes (up / down): price above / below SMA50 and SMA200; SMA50 above / below SMA200; RSI below 30 / above 70; MACD histogram above / below 0; 3-month return above / below 0. Verdict: bullish at +3 or more, bearish at −3 or less, otherwise mixed.')),
     h('p', { class: 'muted small mt' }, tr('Source: daily closes (Yahoo Finance via the published history). SMA = simple moving average; RSI uses Wilder smoothing; MACD 12/26/9. Indicators use closing prices only. Not investment advice.')));
 };

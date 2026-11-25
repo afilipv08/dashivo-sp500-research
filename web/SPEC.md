@@ -245,6 +245,18 @@ fewer than four available rules = not enough data), with a one-line summary and 
 are used (no volume, highs or lows), and results are descriptive, not forecasts; the SMA200 rule needs 200 closes.
 The thresholds are baseline choices, unconfirmed by the user.
 
+## Fundamental analysis
+
+The Fundamental analysis page (`web/fundamental.js`) reuses the attributed valuation snapshot (`intrinsic_values.json`), so it
+adds no source: Zyberno (CC BY 4.0) supplies trailing-twelve-month revenue, net income, free cash flow, EPS, ROE, ROIC and
+market cap, and Equity Rank the Fundamental Strength score/grade and model counts. Ratios (P/E on the live or report
+price, P/S, net margin, FCF yield) are computed in the browser; missing inputs stay blank. Six rules vote +1/0/−1: net margin
+(>10% / <0%), ROE (>15% / <5%), ROIC (>10% / <6%), FCF yield (>4% / <0%), trailing P/E (≤25 / >40 or a loss) and Fundamental
+Strength (≥60 / <40); the verdict is strong at +3 or more, weak at −3 or less, otherwise mixed, and needs at least four
+available rules. The thresholds are baseline choices, unconfirmed by the user, and source rows can lag the latest filings.
+The snapshot carries `schema` (`PAYLOAD_SCHEMA`), and a cache without the current schema is rebuilt, so new published fields
+do not wait for the 24-hour window.
+
 ## eToro links
 
 The eToro page uses the active filters and ranking to show official asset-page links for the current
