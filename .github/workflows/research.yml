@@ -1,11 +1,16 @@
-# Daily SP500 research on weekdays at 16:00 Romania time, and on demand from the dashboard's "Run research" button.
+# Daily SP500 research at 16:00 Romania time (every day, including weekends), plus catch-up runs the same day,
+# and on demand from the dashboard's "Run research" button.
 # Runs yahoo_unificat.py, commits the new Excel reports and the Top 10 history, then rebuilds and publishes the site.
-# GitHub cron is in UTC: 13:00 UTC is 16:00 in summer (UTC+3), 14:00 UTC in winter (UTC+2); the gate keeps the right one.
+# GitHub cron is in UTC and can start hours late or be dropped: several schedules per day feed a gate that runs
+# only after 16:00 Romania time and only if today's Top 10 history entry does not exist yet.
 name: Research SP500
 on:
   schedule:
-    - cron: '0 13 * * 1-5'
-    - cron: '0 14 * * 1-5'
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 20 * * *'
+    - cron: '30 22 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,16 +29,15 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - id: gate
-        name: Run at 16:00 Romania time only
-        run: |
-          offset=$(date +%z)
-          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 13 * * 1-5" ] && [ "$offset" = "+0300" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 14 * * 1-5" ] && [ "$offset" = "+0200" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
-          else echo "run=false" >> "$GITHUB_OUTPUT"; echo "Not 16:00 in Romania for this cron (offset $offset), skipping."; fi
       - uses: actions/checkout@v4
-        if: steps.gate.outputs.run == 'true'
+      - id: gate
+        name: Run after 16:00 Romania time, once per day
+        run: |
+          today=$(date +%F); hour=$(date +%H)
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$((10#$hour))" -lt 16 ]; then echo "run=false" >> "$GITHUB_OUTPUT"; echo "Before 16:00 in Romania ($hour h), skipping."
+          elif grep -q "\"date\":\"$today\"" Output/top10_history.json; then echo "run=false" >> "$GITHUB_OUTPUT"; echo "Today's research ($today) is already recorded, skipping."
+          else echo "run=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-python@v5
         if: steps.gate.outputs.run == 'true'
         with:
@@ -57,10 +61,10 @@ jobs:
         run: python build_site.py --refresh
       - uses: actions/configure-pages@v5
         if: steps.gate.outputs.run == 'true'
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: steps.gate.outputs.run == 'true'
         with:
           path: site
       - id: deploy
         if: steps.gate.outputs.run == 'true'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -166,7 +166,7 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   provider's official Fair Value Calculator SVG embed. `SEC_CONTACT_EMAIL` is supplied to the Pages
   build only as a GitHub Actions secret and is used only in the SEC User-Agent; neither it nor raw SEC
   responses are published. The browser and local server consume the attribution-safe static snapshot.
-- GitHub Actions: `research.yml` every weekday at 16:00 Europe/Bucharest (paired UTC schedules plus a timezone-offset gate for summer/winter) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 history, then publishes; `site.yml` refreshes prices every 30 minutes in US
+- GitHub Actions: `research.yml` every day at 16:00 Europe/Bucharest (five UTC schedules feeding a gate, see Top 10 history) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 history, then publishes; `site.yml` refreshes prices every 30 minutes in US
   market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
   `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
 - Yahoo silently throttles cloud runners (quotes come back empty, no 429): `yahoo_unificat.retry_failed`
@@ -191,8 +191,10 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   in `Output/top10_history.json` (committed): one entry per day, latest run of the day wins, with price, proximity,
   upside, score and how many stocks matched. Its preset rules and ranking copy `web/data.js` and must stay equal
   (tested against the Investitii Top 5). `--backfill` rebuilt it from the saved reports.
-- The online research now runs every weekday at 16:00 Romania time: two UTC crons (summer/winter) plus a gate
-  step that keeps only the one matching the current Bucharest offset.
+- The online research runs every day (weekends included, by the user's choice) at 16:00 Romania time. GitHub cron is
+  UTC and can start hours late or be dropped, so five UTC schedules (13, 14, 17, 20 and 22:30) feed a gate that runs
+  only after 16:00 Bucharest time and only when `Output/top10_history.json` has no entry for today's date; manual runs
+  always execute. This is what closes day gaps without duplicate runs.
 - The Top 10 history page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
 - Simulation cohorts use each saved Top 5/Top 10 selection and report entry prices, with $10,000 equally
