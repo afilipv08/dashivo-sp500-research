@@ -222,6 +222,15 @@ skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 
 source requests in that build; the current snapshot is retained and the next refresh waits for its
 24-hour cache window.
 
+## eToro links
+
+The eToro page uses the active filters and ranking to show official asset-page links for the current
+Top 10 and points to the Analyst Forecast and Analysis sections on eToro. The dashboard intentionally
+does not fetch, scrape, cache, or republish eToro forecast data: the API documentation reviewed lists
+market rates, candles, history and metadata, but no analyst-forecast endpoint, and public
+redistribution rights were not confirmed. No eToro API credentials belong in the public app. If
+approved access and reuse rights become available, reconsider this boundary before importing data.
+
 ## Phone access
 
 - Opt-in only (`run_dashboard_telefon.bat` / `dashboard_server.py --lan`); the normal start stays
