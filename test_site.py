@@ -31,6 +31,7 @@ class SiteTests(unittest.TestCase):
             self.assertIn('function staticApi', html)
             self.assertIn('Views.intrinsic', html)
             self.assertIn('Views.etoro', html)
+            self.assertIn('Views.calendar', html)
             self.assertIn('ETORO_SLUG_ALIASES', html)
             self.assertIn('https://www.etoro.com/markets/', html)
             self.assertNotIn('ETORO_API_KEY', html)

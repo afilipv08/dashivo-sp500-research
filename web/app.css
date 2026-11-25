@@ -311,3 +311,11 @@ a.btn{text-decoration:none}
 @media(max-width:700px){.iv-guide{grid-template-columns:1fr}.iv-table{min-width:1060px}.iv-alert{font-size:11px}.iv-fvc{width:150px}.etoro-table{min-width:540px}}
 
 .nav a.child{margin-left:14px;padding-left:10px;border-left:1px solid var(--line2);border-radius:0 10px 10px 0;font-size:.94em}
+
+.cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}.cal-title{font:800 15px var(--head)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.cal-wd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0}
+.cal-cell{position:relative;min-height:74px;border:1px solid var(--line);border-radius:10px;background:var(--tint1);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;color:var(--text);font:inherit}
+.cal-cell.blank{border:0;background:transparent}.cal-cell.off{opacity:.35}.cal-cell.none{opacity:.7}button.cal-cell{cursor:pointer}button.cal-cell:hover{border-color:var(--accent-line)}.cal-cell.sel{outline:2px solid var(--accent);outline-offset:1px}
+.cal-n{font-size:11px;color:var(--muted);font-weight:700}.cal-v{font-size:13px;font-weight:800;align-self:flex-end}
+.cal-cell.up .cal-v{color:var(--good)}.cal-cell.down .cal-v{color:var(--bad)}
+@media(max-width:700px){.cal-grid{gap:3px}.cal-cell{min-height:56px;padding:5px}.cal-v{font-size:10px}}

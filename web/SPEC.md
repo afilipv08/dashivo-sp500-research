@@ -200,6 +200,12 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   always execute. This is what closes day gaps without duplicate runs.
 - The Top 10 returns page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
+- The Returns calendar page (`web/calendar.js`, a Top 10 [filtered] sub-page) colours each trading day green or red by
+  the equal-weighted day-over-day price return of the Top 10 selection in force that day: the latest saved selection
+  made on an **earlier** date, because a selection is made at 16:00 Romania time, during the US session, so its first full
+  day is the next one. Hover shows the portfolio and S&P 500 percentages and each pick; a click lists the picks. Days
+  without a market close, without a prior selection, or with no usable prices stay grey; nothing is estimated. It reads the
+  same `top10-history` and `market-history` data as the simulations.
 - Simulation cohorts use each saved Top 5/Top 10 selection and report entry prices, with $10,000 equally
   allocated across eligible picks. The page compares 1-, 2- and 3-calendar-month price returns against the
   S&P 500; it uses the first available close on/after each endpoint, and shows future or unavailable results
