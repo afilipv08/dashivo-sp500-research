@@ -172,6 +172,8 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
 - GitHub Actions: `research.yml` every day at 16:00 Europe/Bucharest (five UTC schedules feeding a gate, see Top 10 returns) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 returns, then publishes; `site.yml` refreshes prices every 30 minutes in US
   market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
   `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
+- `deploy-pages` intermittently reported "Found 0 artifact(s)" right after the upload (about half of the runs on 25.11.2026,
+  succeeding on re-run), so both workflows wait 30 s between the upload and the deploy; re-running the failed job is the fallback.
 - Yahoo silently throttles cloud runners (quotes come back empty, no 429): `yahoo_unificat.retry_failed`
   retries failed stocks slowly, then fills price and 52-week range from one batch of daily history
   (`price_field = history 1y`). First cloud run before this: 432/503.
