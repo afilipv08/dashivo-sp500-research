@@ -157,10 +157,15 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   service worker with network-first offline cache).
 - `build_site.py` builds `site/`: the same app with `window.dashboardStatic`, plus `data/live_prices.json`,
   `crypto.json`, `ratings.json` (filtered list), `history.json` (1 year of daily closes, one shared date
-  list), `meta.json`. Ratings and history are reused from the published site while under a day old.
+  list), `intrinsic_values.json`, and `meta.json`. Ratings, history and valuation snapshots are reused
+  from the published site while fresh; valuation source failures retain last-good data when available.
 - In site mode `web/static.js` answers every `/api/*` call: files for data, `localStorage` for the demo
   portfolio (same rules as `portfolio.py`, with export/import backup because it lives on one device), and
   “Run research” opens the GitHub workflow page. The PC version is unchanged.
+- Intrinsic-value source data is fetched during the build, never from browser JavaScript except the
+  provider's official Fair Value Calculator SVG embed. `SEC_CONTACT_EMAIL` is supplied to the Pages
+  build only as a GitHub Actions secret and is used only in the SEC User-Agent; neither it nor raw SEC
+  responses are published. The browser and local server consume the attribution-safe static snapshot.
 - GitHub Actions: `research.yml` every weekday at 16:00 Europe/Bucharest (paired UTC schedules plus a timezone-offset gate for summer/winter) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 history, then publishes; `site.yml` refreshes prices every 30 minutes in US
   market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
   `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
@@ -195,6 +200,27 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   S&P 500; it uses the first available close on/after each endpoint, and shows future or unavailable results
   as pending/missing rather than estimating them. Dividends, fees and taxes are excluded; the daily index
   close is an approximation to the report's intraday stock prices.
+
+## Intrinsic value
+
+The Intrinsic value page uses the current Top 10 selected by the user's active filters and ranking. It
+shows the live quote when available, otherwise the report price is identified as such. External sources
+are dated and linked: Equity Rank's blended model value, Fair Value Calculator's official per-ticker
+attributed SVG badge, and Zyberno's CC BY 4.0 monthly cross-section. Zyberno publishes company-level
+intrinsic value, so the displayed per-share value is explicitly approximate and calculated as
+`intrinsic_value_usd / (market_cap_usd / price_usd)`; the source inputs, row date and snapshot date are
+available with the estimate. Missing provider values or conversion inputs remain unavailable.
+
+The three filing-based methods use SEC Company Facts: (1) a five-year FCF-per-diluted-share DCF, where
+annual FCF is operating cash flow minus property/plant/equipment purchases, using 5% explicit growth,
+9% discount rate and 2.5% terminal growth; (2) Graham Number, `sqrt(22.5 × diluted EPS × book value per
+share)`; and (3) Gordon-growth DDM, `next annual dividend per share / (9% required return − 2.5%
+dividend growth)`. Inputs, filing dates and assumptions accompany results. These baseline assumptions
+are unconfirmed, not forecasts; missing, nonpositive or incompatible inputs produce unavailable
+results rather than invented estimates. SEC calls are build-side, paced below 10 requests/second, and
+skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 429 stops further
+source requests in that build; the current snapshot is retained and the next refresh waits for its
+24-hour cache window.
 
 ## Phone access
 

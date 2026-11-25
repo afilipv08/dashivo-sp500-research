@@ -17,6 +17,7 @@ import time
 import urllib.request
 
 import dashboard
+import intrinsic_value
 
 BASE = Path(__file__).resolve().parent
 SITE = BASE / 'site'
@@ -101,6 +102,13 @@ self.addEventListener('fetch', e => {
 def build(refresh=False):
     report, stamp = latest_report()
     data = dashboard.load_payload(report)
+    intrinsic_data = None
+    try:
+        intrinsic_data = json.loads((SITE / 'data' / 'intrinsic_values.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        pass
+    if refresh and intrinsic_data is None:
+        intrinsic_data = previous('intrinsic_values.json')
     if SITE.exists():
         shutil.rmtree(SITE)
     (SITE / 'data').mkdir(parents=True)
@@ -169,6 +177,21 @@ def build(refresh=False):
             print('history:', exc)
     if hist:
         write_json('history.json', hist)
+
+    if refresh:
+        try:
+            intrinsic_data = intrinsic_value.build_payload(
+                symbols, previous=intrinsic_data, contact_email=os.environ.get('SEC_CONTACT_EMAIL', '').strip() or None)
+        except Exception:
+            # Keep building the public site if an optional valuation source is unavailable.
+            intrinsic_data = intrinsic_data or {'at': now(), 'assumptions': intrinsic_value.ASSUMPTIONS, 'sources': {}, 'fvcEmbedUrl': intrinsic_value.FVC_EMBED_URL}
+    if intrinsic_data is None:
+        intrinsic_data = {'at': now(), 'assumptions': intrinsic_value.ASSUMPTIONS,
+                          'sources': {'equityRank': {'status': 'unavailable', 'rows': {}},
+                                      'zyberno': {'status': 'unavailable', 'rows': {}},
+                                      'sec': {'status': 'contact_required', 'rows': {}}},
+                          'fvcEmbedUrl': intrinsic_value.FVC_EMBED_URL}
+    write_json('intrinsic_values.json', intrinsic_data)
 
     import top10_history
     write_json('top10_history.json', top10_history.load())

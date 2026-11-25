@@ -21,6 +21,8 @@ import top10_history
 BASE = Path(__file__).resolve().parent
 MARKET_HISTORY_CACHE = {'data': None, 'fetched': 0.0}
 MARKET_HISTORY_LOCK = threading.Lock()
+INTRINSIC_CACHE = {'data': None, 'fetched': 0.0}
+INTRINSIC_LOCK = threading.Lock()
 
 
 def market_history():
@@ -41,6 +43,27 @@ def market_history():
             with urllib.request.urlopen(url, timeout=20) as response:
                 data = json.loads(response.read())
         MARKET_HISTORY_CACHE.update(data=data, fetched=time.monotonic())
+        return data
+
+
+def intrinsic_values():
+    """Read the published attribution-safe valuation snapshot; never fetch SEC with a browser request."""
+    with INTRINSIC_LOCK:
+        if INTRINSIC_CACHE['data'] and time.monotonic() - INTRINSIC_CACHE['fetched'] < 1800:
+            return INTRINSIC_CACHE['data']
+        local = BASE / 'site' / 'data' / 'intrinsic_values.json'
+        data = None
+        try:
+            candidate = json.loads(local.read_text(encoding='utf-8'))
+            if isinstance(candidate, dict) and isinstance(candidate.get('sources'), dict):
+                data = candidate
+        except (OSError, ValueError):
+            pass
+        if data is None:
+            url = 'https://afilipv08.github.io/dashivo-sp500-research/data/intrinsic_values.json?t=' + str(int(time.time()))
+            with urllib.request.urlopen(url, timeout=20) as response:
+                data = json.loads(response.read())
+        INTRINSIC_CACHE.update(data=data, fetched=time.monotonic())
         return data
 
 
@@ -361,6 +384,11 @@ def make_server(port=8765, lan=False):
                     self.reply(200, market_history())
                 except Exception:
                     self.reply(503, {'error': 'Daily market history (including the S&P 500 benchmark) is unavailable right now.'})
+            elif self.path == '/api/intrinsic-values':
+                try:
+                    self.reply(200, intrinsic_values())
+                except Exception:
+                    self.reply(503, {'error': 'Intrinsic-value source data is unavailable right now.'})
             elif self.path == '/api/crypto':
                 data = crypto.public(crypto.cached())
                 self.reply(200 if data else 404, data or {'error': 'No crypto data yet.'})

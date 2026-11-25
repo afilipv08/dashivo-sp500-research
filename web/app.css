@@ -290,3 +290,20 @@ a.btn{text-decoration:none}
 .hist-chip.positive{border-color:color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
 .hist-chip.negative{border-color:color-mix(in srgb,var(--bad) 45%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
 .hist-day .tbl-wrap{margin-top:12px}
+/* ===== Intrinsic-value estimates ===== */
+.iv-alert{background:color-mix(in srgb,var(--warn) 14%,transparent);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:10px;padding:12px 14px;margin:0 0 12px;font-size:12px;line-height:1.5}
+.iv-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.iv-table{border-collapse:collapse;width:100%;min-width:1120px;font-size:12px}
+.iv-table th,.iv-table td{padding:10px 9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+.iv-table thead th{background:var(--tint1);white-space:nowrap;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.iv-table thead .iv-groups th{text-align:center;border-bottom:0;color:var(--accent);font-weight:800}
+.iv-table tbody tr:last-child td{border-bottom:0}
+.iv-ticker{display:block;font:800 14px var(--head)}.iv-company{display:block;color:var(--muted);font-size:10px;max-width:160px;margin-top:3px}
+.iv-value{display:block;font-weight:800;white-space:nowrap;color:var(--text)}.iv-link,.iv-head-link{color:inherit;text-decoration:none}.iv-link:hover,.iv-head-link:hover{color:var(--accent);text-decoration:underline}
+.iv-date{display:block;color:var(--muted);font-size:9px;line-height:1.35;margin-top:3px;white-space:nowrap}
+.iv-unavailable{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:11px;white-space:nowrap}.iv-unavailable small{font-size:9px;white-space:normal;max-width:180px;line-height:1.35}
+.iv-fvc-link{display:inline-block}.iv-fvc{display:block;width:170px;height:auto;min-height:28px;object-fit:contain}.iv-disclaimer{font-size:11px;color:var(--muted);line-height:1.5;margin:12px 2px 0}
+.iv-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.iv-guide-item{border:1px solid var(--line);border-radius:10px;background:var(--tint1);padding:12px}
+.iv-guide-item b{display:block;font-size:13px}.iv-guide-item p{font-size:11px;line-height:1.5;margin:7px 0;color:var(--muted)}.iv-guide-item small{font-size:10px;color:var(--muted);line-height:1.45}
+.iv-attribution{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:11px}.iv-attribution a{color:var(--accent);font-weight:700}
+@media(max-width:700px){.iv-guide{grid-template-columns:1fr}.iv-table{min-width:1060px}.iv-alert{font-size:11px}.iv-fvc{width:150px}}
