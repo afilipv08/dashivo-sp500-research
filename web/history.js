@@ -52,10 +52,10 @@ Views.history = () => {
     kpi('Best pick', best ? best.symbol : '—', best ? h('span', null, h('span', { class: 'positive notr' }, signedPct(best.chg)), ' · ', h('span', { class: 'notr' }, best.date)) : '—'),
     kpi('Weakest pick', worst ? worst.symbol : '—', worst ? h('span', null, h('span', { class: 'negative notr' }, signedPct(worst.chg)), ' · ', h('span', { class: 'notr' }, worst.date)) : '—'),
     kpi('Distinct stocks', String(Object.keys(freq).length), 'across all recorded days'));
-  const freqCard = card('Most often in the Top 10', 'Hover a bar for the days', barList(topFreq.map(([sym, days]) => ({ label: sym, logo: true, value: days.length,
+  const freqCard = card('Most frequent', 'Hover a bar for the days', barList(topFreq.map(([sym, days]) => ({ label: sym, logo: true, value: days.length,
     tip: tipHtml(sym, [tipRow('Days in the Top 10', String(days.length)), tipRow('Since then', signedPct(sinceThen({ symbol: sym, price: entries.find(e => e.date === days[days.length - 1]).items.find(r => r.symbol === sym).price })))], days.join(', ')) })),
     { fmt: v => v + ' ' + tr(v === 1 ? 'one day' : 'days') }), null, 'c5');
-  const trend = card('Average change since selection, per day', 'Each bar = the 10 stocks selected that day, live price now vs their price then', barList(entries.slice(0, 15).map((e, i) => ({
+  const trend = card('Change since selection', 'Each bar = the 10 stocks selected that day, live price now vs their price then', barList(entries.slice(0, 15).map((e, i) => ({
     label: e.date.slice(5), value: (dayAvg[i] ?? 0) * 100, color: dayAvg[i] < 0 ? 'var(--bad)' : 'var(--good)',
     tip: tipHtml(weekday(e.date), [tipRow('Stocks', String(e.items.length)), tipRow('Average since selection', signedPct(dayAvg[i]))], e.items.map(r => r.symbol).join(', ')) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7');
   const dayCard = (e, i) => {

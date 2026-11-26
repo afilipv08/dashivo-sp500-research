@@ -35,9 +35,9 @@ Views.sources = () => {
   const answers = h('div', { class: 'iv-guide src-answers' }, SOURCE_ANSWERS.map(([q, a, route, page]) => h('article', { class: 'iv-guide-item' },
     h('b', null, tr(q)), h('p', null, tr(a)), route ? h('a', { href: '#/' + route, onclick: e => { e.preventDefault(); App.go(route); } }, tr(page) + ' →') : h('small', null, tr('Not connected yet')))));
   return h('div', null,
-    card('Sources and analyses', 'Where the data comes from, what each platform allows for free, and which question each page answers. Limits are the providers\' own and can change.', table, null, 'c12'),
-    card('What you can conclude', 'Each question below is answered by a page of this dashboard.', answers, null, 'c12'),
-    card('Rules for adding a source', null, h('ul', { class: 'src-rules' },
+    card('Sources', 'Where the data comes from, what each platform allows for free, and which question each page answers. Limits are the providers\' own and can change.', table, null, 'c12'),
+    card('What it tells you', 'Each question below is answered by a page of this dashboard.', answers, null, 'c12'),
+    card('Adding a source', null, h('ul', { class: 'src-rules' },
       h('li', null, tr('Free tier first; check the provider\'s terms before showing its data on the public site (the repository and Pages are public).')),
       h('li', null, tr('Keys and account details stay in GitHub Actions secrets or on this PC, never in the page or the repository.')),
       h('li', null, tr('Missing data is shown as unavailable, never estimated.'))), null, 'c12'),

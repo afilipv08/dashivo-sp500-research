@@ -106,8 +106,8 @@ Views.sectors = () => {
       h('td', { class: 'notr' }, pctf(s.gap)))))));
   const metricCards = card('Sector comparison', 'All reported S&P 500 companies; click a row to inspect its stocks. Live change = current quote vs the source report price, not a time-period return.', table, null, 'c12');
   const charts = h('div', { class: 'grid mt' },
-    card('Average live change by sector', 'Average of available live quote / report price − 1', barList([...sectors].sort((a,b) => (b.live ?? -Infinity) - (a.live ?? -Infinity)).map(s => ({ label: s.name, value: (s.live ?? 0) * 100, color: s.live < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies', nf(s.count)), tipRow('Average change', signedSector(s.live)), tipRow('Live quotes included', nf(s.liveCount))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7'),
-    card('Average analyst upside', 'Simple mean of report upside to mean analyst target; not a forecast return', barList([...sectors].sort((a,b) => (b.upside ?? -Infinity) - (a.upside ?? -Infinity)).map(s => ({ label: s.name, value: (s.upside ?? 0) * 100, color: s.upside < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies with valid target', nf(s.upsideCount)), tipRow('Average upside', pctf(s.upside))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c5'));
+    card('Live change by sector', 'Average of available live quote / report price − 1', barList([...sectors].sort((a,b) => (b.live ?? -Infinity) - (a.live ?? -Infinity)).map(s => ({ label: s.name, value: (s.live ?? 0) * 100, color: s.live < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies', nf(s.count)), tipRow('Average change', signedSector(s.live)), tipRow('Live quotes included', nf(s.liveCount))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7'),
+    card('Analyst upside', 'Simple mean of report upside to mean analyst target; not a forecast return', barList([...sectors].sort((a,b) => (b.upside ?? -Infinity) - (a.upside ?? -Infinity)).map(s => ({ label: s.name, value: (s.upside ?? 0) * 100, color: s.upside < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies with valid target', nf(s.upsideCount)), tipRow('Average upside', pctf(s.upside))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c5'));
   const selected = sectors.find(s => s.name === SECTOR_PAGE.open);
   const detail = selected ? card(selected.name + ' · ' + selected.count + ' companies', 'Current live price vs report price; other values come from the report. Click the sector row again to close.', h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl' },
     h('thead', null, h('tr', null, ['Company','Live vs report','Buy + SB','Analysts','Upside','Min-target proximity'].map(x => h('th', null, x)))),
@@ -142,16 +142,16 @@ Views.overview = () => {
       card('Top 5', RANKINGS[UI.ranking].label, top.length ? h('div', { class: 'tl' }, top.slice(0, 5).map((r, i) => h('div', { class: 'ti', style: { '--c': 'var(--accent)' }, onclick: () => App.go('top10') },
         h('span', { class: 'rk' }, i + 1), logoEl(r.symbol, 28), h('div', { style: { flex: 1, minWidth: 0 } }, h('div', { class: 'nm notr' }, r.symbol + ' · ' + r.company), h('div', { class: 'sub notr' }, r.sector)), h('b', { class: 'notr' }, usd(r.price))))) : h('div', { class: 'empty' }, 'No valid ranking values.'),
         btn('Top 10 [filtered]', 'right', () => App.go('top10'), 'sm ghost'), 'c5'),
-      card('Recommendations in the selection', 'All analyst ratings of the filtered stocks · hover a segment', (() => {
+      card('Recommendations', 'All analyst ratings of the filtered stocks · hover a segment', (() => {
         const tot = k => sel.reduce((a, r) => a + (num(r[k]) ? r[k] : 0), 0);
         const data = REC.map(([k, , long, c]) => ({ label: long, value: tot(k), color: c })).filter(d => d.value > 0);
         return data.length ? donut(data, { label: 'ratings' }) : h('div', { class: 'empty' }, 'No stocks in the selection.');
       })(), null, 'c5'),
-      card('Upside to mean target · Top 10', 'Hover a bar for price, targets and proximity · click to open Top 10', barList(top.slice(0, 10).map(r => ({
+      card('Upside to target', 'Hover a bar for price, targets and proximity · click to open Top 10', barList(top.slice(0, 10).map(r => ({
         label: r.symbol, logo: true, value: (r.upside ?? 0) * 100, color: r.upside < 0 ? 'var(--bad)' : 'var(--good)', onclick: () => App.go('top10'),
         tip: tipHtml(r.symbol + ' · ' + r.company, [tipRow('Price', usd(r.price)), tipRow('Min. target', usd(r.minTarget)), tipRow('Mean target', usd(r.meanTarget)), tipRow('Max. target', usd(r.maxTarget)),
           tipRow('Upside to mean target', pctf(r.upside)), tipRow('Min. target proximity', pctf(r.gap))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7'),
-      card('Distance from the 52-week low · full list', 'How many SP500 stocks sit close to their yearly low · hover a column for the symbols', histogram(
+      card('Distance from 52-week low', 'How many SP500 stocks sit close to their yearly low · hover a column for the symbols', histogram(
         universe().filter(r => num(r.distance)).map(r => ({ v: r.distance * 100, s: r.symbol })),
         { bins: [0, 5, 10, 15, 20, 30, 40, 60, 100, 1000], label: (lo, hi) => hi >= 1000 ? '≥' + lo + '%' : lo + '–' + hi + '%', mark: UI.f.distance, markLabel: tr('Highlighted: within the active distance filter') + ' (≤ ' + nf(UI.f.distance) + '%)' }), null, 'c12'),
       card('Source', null, h('div', null, h('div', { class: 'srcgrid' },
@@ -165,7 +165,7 @@ const excelHref = () => excelObjectUrl || './' + encodeURIComponent(DATA.source)
 
 /* ---------- Research: run Python + manual import ---------- */
 Views.research = () => h('div', { class: 'grid' },
-  card('Run the SP500 research', 'Downloads Yahoo data, generates Excel and loads the result automatically. A full run takes about 5 minutes.', h('div', null,
+  card('Research', 'Downloads Yahoo data, generates Excel and loads the result automatically. A full run takes about 5 minutes.', h('div', null,
     window.dashboardRunToken ? null : h('div', { class: 'banner' }, icon('alert', 18), h('span', null, 'Open the dashboard with run_dashboard.bat (http://127.0.0.1:8765) to run the program. A file opened directly cannot start Python for security reasons.')),
     h('div', { class: 'row' }, h('button', { class: 'btn pri', id: 'runButton', onclick: startRun }, icon('play'), h('span', null, 'Run research and update the dashboard')), h('span', { class: 'sp' }), h('b', { id: 'runPct', class: 'notr big' })),
     h('div', { class: 'banner resume', id: 'runResume', hidden: true }, icon('repeat', 18), h('span', { id: 'runResumeText' }), h('span', { class: 'sp' }),
@@ -299,7 +299,7 @@ function refreshTop() {
 Views.filtered = () => {
   const sel = selection();
   if (!sel) return card(null, null, h('div', { class: 'empty' }, 'Enter valid non-negative thresholds; analyst and recommendation counts must be integers.'));
-  return card('Filtered list · all Excel columns', 'Click a header to sort. Thresholds, search and sector are set on the Top 10 [filtered] page.', h('div', null,
+  return card('Filtered', 'Click a header to sort. Thresholds, search and sector are set on the Top 10 [filtered] page.', h('div', null,
     h('div', { class: 'row', style: { marginBottom: '12px' } }, h('div', { class: 'chips' }, criteriaChips()), h('span', { class: 'sp' }),
       liveStatus(), h('span', { class: 'badge', id: 'tableCount' }, sel.length + ' rows'),
  btn('Export selection CSV', 'dl', () => exportCsv(sel, 'Selection'), 'sm')),

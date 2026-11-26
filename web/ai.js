@@ -99,7 +99,7 @@ Views.ai = () => {
         h('button', { class: 'btn sm', title: 'Copy prompt', onclick: () => copyText(buildPrompt(r)).then(ok => toast(ok ? 'Prompt copied' : 'Copy failed')) }, icon('copy', 14))));
   };
   return h('div', null,
-    card('AI analysis · Top 10', h('span', null, 'Same stocks and order as Top 10 [filtered]', ' (', RANKINGS[UI.ranking].label, ').'),
+    card('AI prompts', h('span', null, 'Same stocks and order as Top 10 [filtered]', ' (', RANKINGS[UI.ranking].label, ').'),
       top.length ? h('div', { class: 'ai-list' }, top.map(row)) : h('div', { class: 'empty' }, 'No valid ranking values.'),
       h('div', { class: 'row' }, h('span', { class: 'muted small' }, 'Assistant'), h('b', { class: 'notr' }, a.name), btn('Prompt settings', 'cog', () => App.go('settings'), 'sm'))),
     h('p', { class: 'muted small mt' }, 'AI answers are opinions, not investment advice. Check the figures before investing, even in the demo portfolio.'));

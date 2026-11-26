@@ -63,7 +63,7 @@ const techTip = (symbol, t) => tipHtml(symbol + ' · ' + tr(TECH_LABELS[t.verdic
   tr('Score') + ' ' + (t.score > 0 ? '+' : '') + t.score + ' / ' + t.available + ' · ' + tr('Data until') + ' ' + t.last);
 Views.technical = () => {
   loadSimulations();
-  const heading = card('Technical analysis · current Top 10', 'Computed here from published daily closes of the stocks in the current Top 10 (active filters and ranking). Six rules each vote up, neutral or down; hover a verdict for the values. Indicators describe past prices and are not forecasts.', null, null, 'c12');
+  const heading = card('Technical', 'Computed here from published daily closes of the stocks in the current Top 10 (active filters and ranking). Six rules each vote up, neutral or down; hover a verdict for the values. Indicators describe past prices and are not forecasts.', null, null, 'c12');
   if (SIM_VIEW.error) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, SIM_VIEW.error)));
   if (!SIM_VIEW.market) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading the history…'))));
   const selected = selection(), top = selected ? ranked(selected).slice(0, 10) : [];

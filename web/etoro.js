@@ -21,7 +21,7 @@ Views.etoro = () => {
           h('td', null, etoroOpenLink(stock)),
           h('td', null, h('span', null, tr('Overview → Analyst Forecast')),
             h('small', { class: 'etoro-detail' }, tr('Analysis tab for more details'))))))));
-  return h('div', null, card('eToro · current Top 10', 'The active filters and ranking determine these stocks.',
+  return h('div', null, card('eToro', 'The active filters and ranking determine these stocks.',
     h('div', null,
       h('p', { class: 'etoro-intro' }, tr('Open each stock’s official eToro page to review its analyst research.')),
       h('div', { class: 'etoro-note' }, tr('Analyst consensus is not a guaranteed prediction or investment advice.'), ' ',

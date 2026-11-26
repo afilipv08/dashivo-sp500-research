@@ -30,7 +30,7 @@ const fundTip = (symbol, f) => tipHtml(symbol + ' · ' + tr(FUND_LABELS[f.verdic
   tr('Score') + ' ' + (f.score > 0 ? '+' : '') + f.score + ' / ' + f.available + (f.asOf ? ' · ' + tr('Source date') + ' ' + String(f.asOf).slice(0, 10) : ''));
 Views.fundamental = () => {
   if (!INTRINSIC.loaded) ivLoad();
-  const heading = card('Fundamental analysis · current Top 10', 'Trailing-twelve-month fundamentals (Zyberno, CC BY 4.0) and the Equity Rank Fundamental Strength score for the stocks of the current Top 10 (active filters and ranking). Six rules vote up, neutral or down; hover a verdict for the values. Data are dated and may lag the latest filings; not a forecast.', null, null, 'c12');
+  const heading = card('Fundamentals', 'Trailing-twelve-month fundamentals (Zyberno, CC BY 4.0) and the Equity Rank Fundamental Strength score for the stocks of the current Top 10 (active filters and ranking). Six rules vote up, neutral or down; hover a verdict for the values. Data are dated and may lag the latest filings; not a forecast.', null, null, 'c12');
   if (INTRINSIC.error) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Intrinsic-value data is unavailable.'), ' ', INTRINSIC.error)));
   if (!INTRINSIC.loaded) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading verified source data…'))));
   const selected = selection(), top = selected ? ranked(selected).slice(0, 10) : [];

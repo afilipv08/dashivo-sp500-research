@@ -113,11 +113,11 @@ Views.intrinsic = () => {
                 ivMethodCell(sec.dcf?.value ? sec.dcf : ttm.dcf || sec.dcf, methodsStatus), ivMethodCell(sec.graham?.value ? sec.graham : ttm.graham || sec.graham, methodsStatus), ivMethodCell(sec.ddm?.value ? sec.ddm : ttm.ddm || sec.ddm, methodsStatus));
             }))));
   return h('div', null,
-    card('Intrinsic value · current Top 10', 'Active filters and ranking determine these stocks. Estimates are not price targets or investment advice.',
+    card('Fair value', 'Active filters and ranking determine these stocks. Estimates are not price targets or investment advice.',
       h('div', null, alert, body,
         h('p', { class: 'iv-disclaimer' }, tr('External data is attributed and dated. Zyberno per-share value is approximate; source company value is divided by implied shares. Missing data is never replaced with an estimate.'))), null, 'c12'),
-    card('How the three methods work', 'SEC Company Facts · annual filing inputs · assumptions shown with each result', ivMethodGuide(), null, 'c12'),
-    card('Source attribution', null, h('div', { class: 'iv-attribution' },
+    card('The three methods', 'SEC Company Facts · annual filing inputs · assumptions shown with each result', ivMethodGuide(), null, 'c12'),
+    card('Sources used', null, h('div', { class: 'iv-attribution' },
       h('span', null, ivLink('Equity Rank', 'https://www.equity-rank.com/') , ' · public blended model values'),
       h('span', null, ivLink('Fair Value Calculator', 'https://www.fairvalue-calculator.com/') , ' · official per-ticker SVG embed with provider attribution'),
       h('span', null, ivLink('Zyberno', 'https://zyberno.com/brina-gap/') , ' · CC BY 4.0 monthly cross-section; per-share conversion disclosed'),

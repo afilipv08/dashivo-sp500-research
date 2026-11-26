@@ -24,7 +24,7 @@ async function btRun(symbols) {
 Views.backtest = () => {
   if (!CRYPTO.data) { loadCrypto().then(() => App.route() === 'backtest' && App.render()); }
   if (CRYPTO.data && !BT.data && !BT.loading && !BT.error) btLoad();
-  const heading = card('Backtest · crypto Top 10', 'What the freqtrade sample strategy (RSI/Bollinger-style) would have done on each coin over the last 90 days of Binance hourly candles, trading 100 USDT at a time. It is a test of the past on one example strategy, not a forecast or advice.', null, null, 'c12');
+  const heading = card('Backtest', 'What the freqtrade sample strategy (RSI/Bollinger-style) would have done on each coin over the last 90 days of Binance hourly candles, trading 100 USDT at a time. It is a test of the past on one example strategy, not a forecast or advice.', null, null, 'c12');
   if (BT.error && !BT.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, BT.error)));
   if (!CRYPTO.data || !BT.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading…'))));
   const d = BT.data, run = d.run || {}, results = d.results || {}, today = d.today || new Date().toISOString().slice(0, 10), online = window.dashboardStatic;

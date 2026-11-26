@@ -124,7 +124,7 @@ Views.crypto = () => {
       kpi('BTC cycle', d.btc?.now ? tr('day') + ' ' + d.btc.now.daysSinceHalving : '—', d.btc?.now ? h('span', null, d.btc.now.daysToNextHalving + ' ', tr('days to the next halving')) : '—')),
     h('div', { class: 'sectionhead' }, h('div', null, h('h2', null, 'Top 10 by market cap'), h('p', { class: 'muted small' }, 'Click a coin for its key levels. Hover the 7-day chart for prices.'))),
     h('div', { class: 'grid' }, coins().map(coinCard)),
-    card('Fear & Greed · last 60 days', 'Below 25 = extreme fear (historically closer to bottoms); above 75 = extreme greed', fngChart(), null, 'mt'));
+    card('Fear & Greed, 60 days', 'Below 25 = extreme fear (historically closer to bottoms); above 75 = extreme greed', fngChart(), null, 'mt'));
 };
 
 /* ---------- Key levels ---------- */
@@ -229,8 +229,8 @@ Views.xsent = () => {
   return h('div', null, cryptoStatus(),
     h('div', { class: 'grid' },
       card('Fear & Greed today', 'alternative.me index, 0 = extreme fear, 100 = extreme greed', fngGauge(f.value, f.label), null, 'c4'),
-      card('Fear & Greed · last 60 days', null, fngChart(), null, 'c8'),
-      card('Important posts on X, per coin', 'X has no free API, so each button opens X with the right search, or asks your AI assistant for a summary of the week', h('div', { class: 'xrows' },
+      card('Fear & Greed, 60 days', null, fngChart(), null, 'c8'),
+      card('Posts on X', 'X has no free API, so each button opens X with the right search, or asks your AI assistant for a summary of the week', h('div', { class: 'xrows' },
         coins().filter(c => !c.stable).map(c => h('div', { class: 'xrow' }, coinLogo(c, 30), h('div', { class: 'ai-id' }, h('b', { class: 'notr' }, c.symbol), h('div', { class: 'muted small notr' }, c.name)),
           h('a', { class: 'btn sm', href: xSearch('$' + c.symbol + ' min_faves:500'), target: '_blank', rel: 'noopener' }, icon('xlogo', 13), h('span', null, 'Top posts')),
           h('a', { class: 'btn sm', href: xSearch('(' + handles.map(u => 'from:' + u).join(' OR ') + ') (' + c.symbol + ' OR ' + c.name + ')'), target: '_blank', rel: 'noopener' }, icon('user', 13), h('span', null, 'From influential accounts')),

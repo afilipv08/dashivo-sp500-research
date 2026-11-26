@@ -41,7 +41,7 @@ function agentRow(sym, r, run, day, program) {
 Views.agents = () => {
   if (!AGENTS.data && !AGENTS.loading && !AGENTS.error) agentsLoad();
   const [, label, link] = AGENT_PROGRAMS.find(p => p[0] === AGENTS.program);
-  const heading = card('AI agents · current Top 10', 'Short conclusions from programs installed on your PC (TradingAgents, Vibe-Trading) for the stocks of the current Top 10. Each run is saved in this platform; the table shows the latest saved answer per stock. Model output, not investment advice.', agentTabs(), null, 'c12');
+  const heading = card('AI agents', 'Short conclusions from programs installed on your PC (TradingAgents, Vibe-Trading) for the stocks of the current Top 10. Each run is saved in this platform; the table shows the latest saved answer per stock. Model output, not investment advice.', agentTabs(), null, 'c12');
   if (AGENTS.error && !AGENTS.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, AGENTS.error)));
   if (!AGENTS.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading…'))));
   const d = AGENTS.data, symbols = agentSymbols(), day = agentReportDay(), run = d.run || {}, results = d.results || {};

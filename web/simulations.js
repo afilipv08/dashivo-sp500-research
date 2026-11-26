@@ -88,7 +88,7 @@ function simDetail(r) {
 }
 Views.simulations = () => {
   loadSimulations();
-  const heading = card(tr('Simulation results'), tr('Each research day is a separate equal-weighted cohort. Top 5 Investitii uses the first five picks; other presets use their Top 10. Starting capital is $10,000. Compares price changes with the S&P 500 index; dividends, fees and taxes are excluded.'),
+  const heading = card(tr('Simulations'), tr('Each research day is a separate equal-weighted cohort. Top 5 Investitii uses the first five picks; other presets use their Top 10. Starting capital is $10,000. Compares price changes with the S&P 500 index; dividends, fees and taxes are excluded.'),
     h('div', { class: 'seg sim-seg' }, SIM_OPTIONS.map(([key, label]) => h('button', { class: SIM_VIEW.preset === key ? 'on' : '', onclick: () => { SIM_VIEW.preset = key; App.render(); } }, tr(label)))));
   if (SIM_VIEW.error) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, SIM_VIEW.error)));
   if (!SIM_VIEW.history || !SIM_VIEW.market) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading the history…'))));

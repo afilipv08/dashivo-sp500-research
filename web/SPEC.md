@@ -51,6 +51,8 @@ other Dashivo dashboards (TaskFlow, SimpleBudget, HabitFlow, Debt Tracker).
   never translated; Excel financial labels (Strong Buy … Sell, Total Analysts, Latest Rating …)
   stay English. Status/issue messages from Python (`dashboard.analyze`, `dashboard_server`) are
   English source for the same reason; per-stock progress lines (`[n/N] SYMBOL: status`) are data.
+- **Titles** are short everywhere: a page's card heading repeats its menu name (e.g. Technical, Fair value, Backtest) instead of a sentence,
+  and the explanatory sentence sits in the card subtitle.
 - **Pages** (menu labels are deliberately one or two words; the first two Top 10 names are the user's own): Overview, Research,
   Top 10 [filtered] (with the sub-pages Top 10 returns, Filtered, Simulations and Calendar, indented in the menu), Sectors,
   Technical, Fundamentals, AI agents, Fair value, eToro, All stocks, AI prompts, Sources, Method, Portfolio (several named
