@@ -51,9 +51,10 @@ other Dashivo dashboards (TaskFlow, SimpleBudget, HabitFlow, Debt Tracker).
   never translated; Excel financial labels (Strong Buy … Sell, Total Analysts, Latest Rating …)
   stay English. Status/issue messages from Python (`dashboard.analyze`, `dashboard_server`) are
   English source for the same reason; per-stock progress lines (`[n/N] SYMBOL: status`) are data.
-- **Pages:** Overview, Run research, Top 10 [filtered] (with the sub-pages Top 10 returns, Filtered list and Simulation
-  results, indented in the menu), Sector analysis, Intrinsic value, eToro, Full SP500 list, AI analysis, Methodology,
-  routed in-app (`App.go`) with a first-run tour and a Ctrl/⌘+K palette.
+- **Pages** (menu labels are deliberately one or two words; the first two Top 10 names are the user's own): Overview, Research,
+  Top 10 [filtered] (with the sub-pages Top 10 returns, Filtered, Simulations and Calendar, indented in the menu), Sectors,
+  Technical, Fundamentals, AI agents, Fair value, eToro, All stocks, AI prompts, Sources, Method, Portfolio (several named
+  portfolios), Settings, and for Crypto Crypto Top 10, Levels, BTC cycles, X & sentiment, routed in-app (`App.go`) with a first-run tour and a Ctrl/⌘+K palette.
 - **Filters:** a list of optional criteria (`null` = no limit) applied to the full loaded list and
   shared by Overview, Top 10 and Filtered list: thresholds (distance from 52-week low, min Total
   Analysts, max Sell / Underperform / Hold, min Strong Buy + Buy), min–max ranges (price, upside,
