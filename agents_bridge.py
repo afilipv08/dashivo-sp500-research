@@ -6,17 +6,25 @@ It uses the user's own AI account/settings from TradingAgents' saved CLI prefere
 import json
 import os
 import shutil
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import re
 import subprocess
 import threading
 import time
+import zipfile
 
 TA_DIR = Path(os.environ.get('TRADINGAGENTS_DIR') or Path.home() / '5_GitHub_programs' / 'TradingAgents')
 TA_HOME = Path(os.environ.get('TRADINGAGENTS_HOME') or Path.home() / '.tradingagents')
 STORE = Path(__file__).resolve().parent / 'Output' / 'pc_analysis.json'   # the platform's own copy of every result, shown after restarts
-PROGRAMS = ('tradingagents', 'vibe')
+PROGRAMS = ('tradingagents', 'vibe', 'freqtrade')
+FT_DIR = Path(os.environ.get('FREQTRADE_DIR') or Path.home() / '5_GitHub_programs' / 'freqtrade')
+FT_WORK = Path.home() / '.freqtrade_dashboard'
+FT_STRATEGY = 'SampleStrategy'
+FT_DAYS = 90            # backtest window; 70 more days of candles are downloaded for the indicators' warm-up
+FT_TIMEOUT = 15 * 60
+STABLES = {'USDT', 'USDC', 'DAI', 'FDUSD', 'TUSD', 'USDE', 'USDS', 'PYUSD'}
+PROGRAM_NAMES = {'tradingagents': 'TradingAgents', 'vibe': 'Vibe-Trading', 'freqtrade': 'freqtrade'}
 VERDICTS = {'Bullish': 'good', 'Neutral': 'mid', 'Bearish': 'bad'}
 VIBE_TIMEOUT = 20 * 60
 VIBE_PROMPT = ('Research {listing} (the U.S.-listed stock with ticker {symbol}); use exactly that listing and do not ask which one is meant, using current market data tools. In at most 120 words give: business, latest financial performance, '
@@ -80,8 +88,8 @@ def parse_report(folder):
 
 def latest(symbols, program='tradingagents'):
     """Newest saved result per symbol: {SYMBOL: {...}}."""
-    if program == 'vibe':
-        saved = read_store().get('vibe', {})
+    if program in ('vibe', 'freqtrade'):
+        saved = read_store().get(program, {})
         return {s: saved[s] for s in symbols if isinstance(s, str) and s in saved}
     root = reports_dir()
     out = {}
@@ -223,6 +231,84 @@ def run_vibe(symbol):
             'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'summary': summary, 'text': parsed['text'][:6000], 'html': False}
 
 
+
+def ft_binary():
+    path = FT_DIR / '.venv' / 'bin' / 'freqtrade'
+    return path if path.is_file() else None
+
+
+def ft_available():
+    return ft_binary() is not None
+
+
+def parse_ft_results(directory):
+    """Strategy statistics from the newest results file freqtrade wrote under `directory` (zip or json)."""
+    files = sorted([p for pattern in ('results-*', 'backtest-result-*') for p in Path(directory).glob(pattern)], key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in files:
+        try:
+            if path.suffix == '.zip':
+                with zipfile.ZipFile(path) as archive:
+                    name = next(n for n in archive.namelist() if n.endswith('.json') and 'config' not in n and 'meta' not in n)
+                    data = json.loads(archive.read(name))
+            elif path.suffix == '.json' and '.meta' not in path.name:
+                data = json.loads(path.read_text(encoding='utf-8'))
+            else:
+                continue
+            return data['strategy'][FT_STRATEGY]
+        except (OSError, ValueError, KeyError, StopIteration, zipfile.BadZipFile):
+            continue
+    return None
+
+
+def ft_result(stats):
+    """The short saved result from freqtrade's backtest statistics."""
+    trades = int(stats.get('total_trades') or 0)
+    profit = float(stats.get('profit_total') or 0) * 100
+    win = float(stats.get('winrate') or 0) * 100
+    drawdown = float(stats.get('max_drawdown_account') or 0) * 100
+    if not trades:
+        return {'rating': 'No trades', 'ratingText': 'No trades', 'summary': 'The strategy made no trades in the period.', 'trades': 0}
+    verdict = 'Profit' if profit > 0 else 'Loss'
+    summary = f'{trades} trades, {win:.0f}% won, total {profit:+.2f}% on the stake, deepest drawdown {drawdown:.1f}%, average trade {float(stats.get("profit_mean") or 0) * 100:+.2f}%.'
+    return {'rating': verdict, 'ratingText': verdict, 'summary': summary, 'trades': trades, 'winRate': win, 'profitPct': profit, 'drawdownPct': drawdown,
+            'period': f'{stats.get("backtest_start", "")[:10]} to {stats.get("backtest_end", "")[:10]}'}
+
+
+def run_freqtrade(symbol):
+    """Download the pair's candles and backtest the sample strategy on the last FT_DAYS days; raises RuntimeError with a safe message."""
+    if not re.fullmatch(r'[A-Z0-9]{2,10}', symbol) or symbol in STABLES:
+        raise RuntimeError('This coin cannot be backtested (stablecoin or unsupported symbol).')
+    work = FT_WORK / symbol
+    shutil.rmtree(work, ignore_errors=True)
+    (work / 'data').mkdir(parents=True)
+    pair = f'{symbol}/USDT'
+    config = {'max_open_trades': 1, 'stake_currency': 'USDT', 'stake_amount': 100, 'dry_run': True, 'dry_run_wallet': 1000, 'trading_mode': 'spot',
+              'timeframe': '1h', 'entry_pricing': {'price_side': 'same'}, 'exit_pricing': {'price_side': 'same'},
+              'exchange': {'name': 'binance', 'key': '', 'secret': '', 'pair_whitelist': [pair], 'pair_blacklist': []}, 'pairlists': [{'method': 'StaticPairList'}]}
+    (work / 'config.json').write_text(json.dumps(config), encoding='utf-8')
+    base = [str(ft_binary()), '--userdir', str(FT_DIR / 'user_data')]
+    start = (date.today() - timedelta(days=FT_DAYS)).strftime('%Y%m%d')
+    steps = [base[:1] + ['download-data', '--config', str(work / 'config.json'), '--datadir', str(work / 'data'), '--timeframes', '1h', '--days', str(FT_DAYS + 70)] + base[1:],
+             base[:1] + ['backtesting', '--config', str(work / 'config.json'), '--datadir', str(work / 'data'), '--strategy', FT_STRATEGY, '--timeframe', '1h', '--timerange', start + '-',
+                         '--export', 'trades', '--backtest-directory', str(work)] + base[1:]]
+    for command in steps:
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=FT_TIMEOUT, cwd=FT_DIR)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError('The run took too long and was stopped.') from None
+        except OSError:
+            raise RuntimeError('freqtrade could not be started.') from None
+        write_log('freqtrade_' + symbol, result.returncode, result.stdout, result.stderr)
+        if result.returncode != 0:
+            text = result.stdout + result.stderr
+            raise RuntimeError('This pair is not available on Binance.' if re.search(r'not available|No data found|does not exist|pairs? .* not', text, re.I)
+                               else 'freqtrade stopped with an error (see its own logs).')
+    stats = parse_ft_results(work)
+    if not stats:
+        raise RuntimeError('freqtrade finished without usable results.')
+    return {**ft_result(stats), 'date': date.today().isoformat(), 'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'html': False}
+
+
 class Queue:
     """Runs the TradingAgents CLI one ticker at a time in a background thread."""
     def __init__(self):
@@ -248,8 +334,9 @@ class Queue:
         clean = clean[:MAX_SYMBOLS]
         if not clean:
             raise ValueError('Choose at least one valid symbol.')
-        if not (available() if program == 'tradingagents' else vibe_available()):
-            raise RuntimeError(('TradingAgents' if program == 'tradingagents' else 'Vibe-Trading') + ' is not installed at the configured location.')
+        ok = {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}[program]()
+        if not ok:
+            raise RuntimeError(PROGRAM_NAMES[program] + ' is not installed at the configured location.')
         with self.lock:
             if self.state['running']:
                 return False
@@ -264,11 +351,12 @@ class Queue:
                 self.state['current'] = symbol
                 self.state['queue'] = [s for s in self.state['queue'] if s != symbol]
             error = None
-            if program == 'vibe':
+            if program in ('vibe', 'freqtrade'):
+                runner = run_vibe if program == 'vibe' else run_freqtrade
                 try:
                     for attempt in range(CONNECTION_RETRIES + 1):
                         try:
-                            save_result('vibe', symbol, run_vibe(symbol))
+                            save_result(program, symbol, runner(symbol))
                             break
                         except RuntimeError as exc:
                             if attempt >= CONNECTION_RETRIES or str(exc) != CONNECTION_MESSAGE:
@@ -276,7 +364,7 @@ class Queue:
                 except RuntimeError as exc:
                     error = str(exc)
                 except Exception:
-                    error = 'Vibe-Trading could not be started.'
+                    error = PROGRAM_NAMES[program] + ' could not be started.'
                 with self.lock:
                     (self.state['errors'].__setitem__(symbol, error) if error else self.state['done'].append(symbol))
                 continue
@@ -309,5 +397,5 @@ class Queue:
 def public(symbols, queue, program='tradingagents'):
     """Payload for the dashboard: saved short conclusions plus the run state."""
     program = program if program in PROGRAMS else 'tradingagents'
-    return {'program': program, 'available': available() if program == 'tradingagents' else vibe_available(), 'results': latest(symbols, program),
+    return {'program': program, 'available': {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}[program](), 'results': latest(symbols, program),
             'run': queue.snapshot(), 'today': date.today().isoformat(), 'checkedAt': datetime.now().astimezone().isoformat(timespec='seconds')}

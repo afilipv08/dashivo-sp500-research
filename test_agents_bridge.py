@@ -151,6 +151,31 @@ class AgentsBridgeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             agents_bridge.Queue().start(['AXON'], program='nope')
 
+    def test_freqtrade_statistics_become_a_short_result(self):
+        import json as _json
+        import zipfile
+        stats = {'total_trades': 9, 'winrate': 2 / 3, 'profit_total': -0.0245, 'max_drawdown_account': 0.0293, 'profit_mean': -0.0273,
+                 'backtest_start': '2026-08-28 00:00:00', 'backtest_end': '2026-11-26 19:00:00'}
+        with tempfile.TemporaryDirectory() as d:
+            with zipfile.ZipFile(Path(d) / 'results-2026-11-26_20-52-56.zip', 'w') as z:
+                z.writestr('results-2026-11-26_20-52-56.json', _json.dumps({'strategy': {agents_bridge.FT_STRATEGY: stats}}))
+                z.writestr('results-2026-11-26_20-52-56_config.json', '{}')
+            (Path(d) / 'results-2026-11-26_20-52-56.meta.json').write_text('{}')
+            (Path(d) / '.last_result.json').write_text('{}')
+            parsed = agents_bridge.parse_ft_results(d)
+            self.assertEqual(parsed['total_trades'], 9)
+            self.assertIsNone(agents_bridge.parse_ft_results(Path(d) / 'missing'))
+        result = agents_bridge.ft_result(parsed)
+        self.assertEqual((result['rating'], result['trades'], result['period']), ('Loss', 9, '2026-08-28 to 2026-11-26'))
+        self.assertIn('67% won', result['summary'])
+        self.assertEqual(agents_bridge.ft_result({'total_trades': 0})['rating'], 'No trades')
+        self.assertEqual(agents_bridge.ft_result({**stats, 'profit_total': 0.03})['rating'], 'Profit')
+
+    def test_freqtrade_rejects_stablecoins_and_odd_symbols_before_running_anything(self):
+        for symbol in ('USDT', 'USDC', '../x', 'btc', ''):
+            with self.assertRaises(RuntimeError):
+                agents_bridge.run_freqtrade(symbol)
+
     def test_queue_runs_symbols_in_order_and_records_failures(self):
         calls = []
 

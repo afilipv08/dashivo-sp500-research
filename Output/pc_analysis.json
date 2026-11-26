@@ -18,5 +18,118 @@
    "text": "**Business:** Weyerhaeuser (WY.US, NYSE) manages timberlands, makes wood products and develops land, according to its company website.\n\n**Latest performance:** SEC figures for the quarter ended September 30, 2026, filed October 30, show revenue rose year over year while net income fell. Yahoo’s November 25, 2026 adjusted close was **US$20.52**.\n\n**Key risks:** Housing and wood-product demand, timber prices, and pressure on earnings. September-quarter cash flow was **not retrieved** by the financial-statement tool.\n\n**Verdict: Neutral** — stronger revenue has not translated into stronger earnings. This is analysis, not a trading recommendation.",
    "html": false
   }
+ },
+ "tradingagents": {
+  "CBRE": {
+   "rating": "Hold",
+   "ratingText": "Hold",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:48:43",
+   "summary": "For CBRE, retain an existing position only if it fits portfolio concentration and loss limits; trim any excess promptly, and remain uninvested if no position is held. After refreshing prices and reviewing portfolio risk, consider adding at most 0.25 times a standard allocation only on sustained closes above the referenced…",
+   "report": "CBRE_20261126_224843",
+   "html": true
+  },
+  "WY": {
+   "rating": "Underweight",
+   "ratingText": "Underweight",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:51:00",
+   "summary": "For WY, trim only exposure above roughly 75% of the caller’s standard, risk-budgeted allocation; do not exit outright, initiate a short, or add solely on the supplied rebound.",
+   "report": "WY_20261126_225100",
+   "html": true
+  }
+ },
+ "freqtrade": {
+  "BTC": {
+   "rating": "Loss",
+   "ratingText": "Loss",
+   "summary": "9 trades, 67% won, total -2.45% on the stake, deepest drawdown 2.9%, average trade -2.73%.",
+   "trades": 9,
+   "winRate": 66.66666666666666,
+   "profitPct": -2.447460628,
+   "drawdownPct": 2.934514562012565,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:27",
+   "html": false
+  },
+  "ETH": {
+   "rating": "Loss",
+   "ratingText": "Loss",
+   "summary": "10 trades, 70% won, total -2.35% on the stake, deepest drawdown 2.8%, average trade -2.35%.",
+   "trades": 10,
+   "winRate": 70.0,
+   "profitPct": -2.350691181,
+   "drawdownPct": 2.844921339073019,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:33",
+   "html": false
+  },
+  "BNB": {
+   "rating": "Loss",
+   "ratingText": "Loss",
+   "summary": "12 trades, 75% won, total -2.15% on the stake, deepest drawdown 2.6%, average trade -1.79%.",
+   "trades": 12,
+   "winRate": 75.0,
+   "profitPct": -2.149292784,
+   "drawdownPct": 2.636925661283564,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:40",
+   "html": false
+  },
+  "XRP": {
+   "rating": "Loss",
+   "ratingText": "Loss",
+   "summary": "17 trades, 82% won, total -1.52% on the stake, deepest drawdown 2.3%, average trade -0.89%.",
+   "trades": 17,
+   "winRate": 82.35294117647058,
+   "profitPct": -1.5163972209999999,
+   "drawdownPct": 2.2562687083579065,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:46",
+   "html": false
+  },
+  "SOL": {
+   "rating": "Loss",
+   "ratingText": "Loss",
+   "summary": "16 trades, 75% won, total -2.80% on the stake, deepest drawdown 3.4%, average trade -1.75%.",
+   "trades": 16,
+   "winRate": 75.0,
+   "profitPct": -2.80385059,
+   "drawdownPct": 3.390758846148232,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:52",
+   "html": false
+  },
+  "TRX": {
+   "rating": "Profit",
+   "ratingText": "Profit",
+   "summary": "6 trades, 83% won, total +0.03% on the stake, deepest drawdown 0.5%, average trade +0.05%.",
+   "trades": 6,
+   "winRate": 83.33333333333334,
+   "profitPct": 0.02851382400000002,
+   "drawdownPct": 0.46992574908174234,
+   "period": "2026-08-28 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:54:59",
+   "html": false
+  },
+  "HYPE": {
+   "rating": "Profit",
+   "ratingText": "Profit",
+   "summary": "12 trades, 92% won, total +0.09% on the stake, deepest drawdown 1.0%, average trade +0.07%.",
+   "trades": 12,
+   "winRate": 91.66666666666666,
+   "profitPct": 0.08823641699999996,
+   "drawdownPct": 1.0169580672308278,
+   "period": "2026-10-02 to 2026-11-26",
+   "date": "2026-11-26",
+   "generated": "2026-11-26 22:55:07",
+   "html": false
+  }
  }
 }

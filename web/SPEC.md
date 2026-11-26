@@ -292,8 +292,14 @@ the results are model output. The bridge never reads or copies keys. A tab per p
   from known error classes and logged to `~/.tradingagents/logs/dashboard_runs/`.
 - `POST /api/agents/run` (loopback only; phone/Tailscale visitors get 403) queues up to 10 symbols for a program; the UI asks for
   confirmation and offers runs for stocks with no conclusion or one older than the report behind the Top 10, or for all ten.
-- Ratings and summaries are not investment advice and not forecasts. Other programs found on the PC (freqtrade, scrapling-lab) are
-  evaluated one at a time before being added.
+- **freqtrade** (`~/5_GitHub_programs/freqtrade` with its own `.venv`, override `FREQTRADE_DIR`; installed there on 26.11.2026 with
+  `pip install -e .`) powers the Crypto → Backtest page (`web/backtest.js`), not the stock page: per coin of the crypto Top 10 it
+  downloads public Binance hourly candles (`download-data`, no key) into `~/.freqtrade_dashboard/<COIN>/` and runs `backtesting`
+  of `SampleStrategy` over the last 90 days (100 USDT per trade, one open trade), then saves trades, win rate, total profit % on the
+  stake and deepest drawdown. Stablecoins, symbols that are not plain tickers and pairs missing on Binance are reported as not
+  testable. It tests one example strategy on the past; it is not a forecast or advice.
+- Ratings and summaries are not investment advice and not forecasts. scrapling-lab (Flashscore scraping) is unrelated to stocks and
+  not used here.
 
 ## eToro links
 
