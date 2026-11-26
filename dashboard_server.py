@@ -11,6 +11,7 @@ import time
 import urllib.request
 import webbrowser
 
+import agents_bridge
 import crypto
 import dashboard
 import live_prices
@@ -23,6 +24,7 @@ MARKET_HISTORY_CACHE = {'data': None, 'fetched': 0.0}
 MARKET_HISTORY_LOCK = threading.Lock()
 INTRINSIC_CACHE = {'data': None, 'fetched': 0.0}
 INTRINSIC_LOCK = threading.Lock()
+AGENT_QUEUE = agents_bridge.Queue()
 
 
 def market_history():
@@ -348,6 +350,20 @@ def make_server(port=8765, lan=False):
                 except Exception:
                     self.reply(502, {'error': 'Live prices are unavailable right now.', **live_prices.cached()})
                 return
+            if self.path == '/api/agents/run':
+                if not self.local():   # starting an AI run spends the owner's account and time: this computer only
+                    self.reply(403, {'error': 'AI agent runs can only be started on the computer that hosts the dashboard.'})
+                    return
+                body = self.body(4 * 1024) or {}
+                try:
+                    started = AGENT_QUEUE.start(body.get('symbols'))
+                except ValueError as exc:
+                    self.reply(400, {'error': str(exc)})
+                except RuntimeError as exc:
+                    self.reply(503, {'error': str(exc)})
+                else:
+                    self.reply(202 if started else 409, AGENT_QUEUE.snapshot() if started else {'error': 'An AI agent run is already in progress.'})
+                return
             if self.path.startswith('/api/portfolio/'):
                 body = self.body(64 * 1024)
                 if body is None:
@@ -389,6 +405,17 @@ def make_server(port=8765, lan=False):
                     self.reply(200, intrinsic_values())
                 except Exception:
                     self.reply(503, {'error': 'Intrinsic-value source data is unavailable right now.'})
+            elif self.path.startswith('/api/agents'):
+                from urllib.parse import parse_qs, urlsplit
+                symbols = [x for x in parse_qs(urlsplit(self.path).query).get('symbols', [''])[0].split(',') if x][:agents_bridge.MAX_SYMBOLS]
+                self.reply(200, agents_bridge.public(symbols, AGENT_QUEUE))
+            elif self.path.startswith('/agents-report/'):
+                name = self.path[len('/agents-report/'):].split('?', 1)[0]
+                path = agents_bridge.report_html(name.rsplit('_', 2)[0], name) if self.local() else None
+                if path:
+                    self.reply(200, path.read_bytes(), 'text/html; charset=utf-8')
+                else:
+                    self.reply(404, {'error': 'Report not found.'})
             elif self.path == '/api/crypto':
                 data = crypto.public(crypto.cached())
                 self.reply(200 if data else 404, data or {'error': 'No crypto data yet.'})

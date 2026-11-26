@@ -91,6 +91,7 @@ async function staticApi(path, method, body) {
   if (route === '/api/top10-history') return siteFile('top10_history.json', false).catch(() => ({ days: [] }));
   if (route === '/api/market-history') return siteFile('history.json', false);
   if (route === '/api/intrinsic-values') return siteFile('intrinsic_values.json', false);
+  if (route === '/api/agents') return { available: false, results: {}, run: {} };   // runs only on the PC with the user's own install
   if (route === '/api/portfolio') return pfSummary(pfLoad());
   if (route === '/api/portfolio/history') {
     const id = new URLSearchParams(query).get('id'), d = pfLoad(), p = [...d.positions, ...d.closed].find(x => x.id === id);

@@ -259,6 +259,23 @@ available rules. The thresholds are baseline choices, unconfirmed by the user, a
 The snapshot carries `schema` (`PAYLOAD_SCHEMA`), and a cache without the current schema is rebuilt, so new published fields
 do not wait for the 24-hour window.
 
+## AI agents (local TradingAgents)
+
+The AI agents page (`web/agents.js`, `agents_bridge.py`) shows short conclusions for the current Top 10 from the
+user's own TradingAgents install (default `~/5_GitHub_programs/TradingAgents`, override with `TRADINGAGENTS_DIR`; its
+data lives in `~/.tradingagents`, override with `TRADINGAGENTS_HOME`). It is **local only** by decision: a run spends the
+owner's AI account and minutes, and the results are model output. The bridge never reads or copies keys.
+- Reading: the newest readable saved report per symbol under `logs/reports/<SYMBOL>_<timestamp>/` gives the
+  five-tier rating, analysis date and the first ~330 characters of the portfolio decision's executive summary; the full
+  `complete_report.html` opens from `/agents-report/<name>` (validated name, loopback visitors only).
+- Running: `POST /api/agents/run` (loopback only; phone/Tailscale visitors get 403) queues up to 10 symbols and runs
+  `python -m cli.main --ticker … --date today --analysts … --save --no-show --html` one at a time with the repository's
+  own virtualenv, taking the provider, models, depth and analysts from the CLI's saved `cli_prefs.json`; a run is killed
+  after 45 minutes. The UI asks for confirmation and offers a run only for stocks without a conclusion or with one older
+  than the report behind the Top 10. The venv's `tradingagents` launcher is bypassed because it points to an old path.
+- The online (GitHub Pages) version shows an explanation instead; no results are published. Ratings and summaries are
+  not investment advice and are not forecasts.
+
 ## eToro links
 
 The eToro page uses the active filters and ranking to show official asset-page links for the current
