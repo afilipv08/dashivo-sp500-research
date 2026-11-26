@@ -5,6 +5,7 @@ It uses the user's own AI account/settings from TradingAgents' saved CLI prefere
 """
 import json
 import os
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 import re
@@ -14,11 +15,19 @@ import time
 
 TA_DIR = Path(os.environ.get('TRADINGAGENTS_DIR') or Path.home() / '5_GitHub_programs' / 'TradingAgents')
 TA_HOME = Path(os.environ.get('TRADINGAGENTS_HOME') or Path.home() / '.tradingagents')
+STORE = Path(__file__).resolve().parent / 'Output' / 'pc_analysis.json'   # the platform's own copy of every result, shown after restarts
+PROGRAMS = ('tradingagents', 'vibe')
+VERDICTS = {'Bullish': 'good', 'Neutral': 'mid', 'Bearish': 'bad'}
+VIBE_TIMEOUT = 20 * 60
+VIBE_PROMPT = ('Research {listing} (the U.S.-listed stock with ticker {symbol}); use exactly that listing and do not ask which one is meant, using current market data tools. In at most 120 words give: business, latest financial performance, '
+               'key risks, and a one-line verdict (Bullish, Neutral or Bearish) with the main reason. State the data dates and flag anything missing.')
 SYMBOL = re.compile(r'^[A-Z0-9][A-Z0-9.\-]{0,9}$')
 RATINGS = ('Buy', 'Overweight', 'Hold', 'Underweight', 'Sell')
 MAX_SYMBOLS = 10
 RUN_TIMEOUT = 45 * 60          # one ticker; a stuck run is killed instead of blocking the queue
 SUMMARY_CHARS = 330
+CONNECTION_RETRIES = 1
+CONNECTION_MESSAGE = 'The AI provider could not be reached (connection error). Check the internet connection, then run again.'
 
 
 def python_path():
@@ -69,12 +78,16 @@ def parse_report(folder):
             'report': folder.name, 'html': (folder / 'complete_report.html').is_file()}
 
 
-def latest(symbols):
-    """Newest saved report per symbol: {SYMBOL: {...}}."""
+def latest(symbols, program='tradingagents'):
+    """Newest saved result per symbol: {SYMBOL: {...}}."""
+    if program == 'vibe':
+        saved = read_store().get('vibe', {})
+        return {s: saved[s] for s in symbols if isinstance(s, str) and s in saved}
     root = reports_dir()
     out = {}
+    saved = read_store().get('tradingagents', {})
     if not root.is_dir():
-        return out
+        return {s: saved[s] for s in symbols if isinstance(s, str) and s in saved}
     for symbol in symbols:
         if not isinstance(symbol, str) or not SYMBOL.match(symbol):
             continue
@@ -85,6 +98,8 @@ def latest(symbols):
             if parsed:
                 out[symbol] = parsed
                 break
+        if symbol not in out and symbol in saved:   # the tool's own folder is gone: use the platform's copy
+            out[symbol] = saved[symbol]
     return out
 
 
@@ -124,7 +139,7 @@ def explain_failure(err):
     text = err.decode('utf-8', 'replace') if isinstance(err, bytes) else (err or '')
     tail = text[-4000:]
     if re.search(r'ConnectionError|APITimeoutError|TimeoutError|Connection error', tail):
-        return 'The AI provider could not be reached (connection error). Check the internet connection, then run again.'
+        return CONNECTION_MESSAGE
     if re.search(r'AuthenticationError|PermissionDenied|\b401\b|\b403\b|login', tail, re.I):
         return 'The AI provider rejected the sign-in. Sign in again in TradingAgents (for ChatGPT: tradingagents login chatgpt), then run again.'
     if re.search(r'RateLimit|\b429\b|quota', tail, re.I):
@@ -143,6 +158,71 @@ def write_log(symbol, code, out, err):
         pass
 
 
+
+_store_lock = threading.Lock()
+
+
+def read_store():
+    try:
+        data = json.loads(STORE.read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_result(program, symbol, result):
+    """Keep a result in the platform file (atomic), so it stays visible and can be published with the site."""
+    with _store_lock:
+        data = read_store()
+        data.setdefault(program, {})[symbol] = result
+        STORE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = STORE.with_suffix('.tmp')
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding='utf-8')
+        os.replace(tmp, STORE)
+
+
+def vibe_binary():
+    found = os.environ.get('VIBE_TRADING_BIN') or shutil.which('vibe-trading') or str(Path.home() / '.local' / 'bin' / 'vibe-trading')
+    return Path(found) if Path(found).is_file() else None
+
+
+def vibe_available():
+    return vibe_binary() is not None
+
+
+def parse_vibe_output(text):
+    """The final answer of a Vibe-Trading run: the repeated block after the run header, else the text before 'Status:'."""
+    text = re.sub(r'\x1b\[[0-9;]*m', '', text or '')
+    after = re.search(r'Run dir:[^\n]*\n(.*?)(?:\n--show |\Z)', text, re.S)
+    block = re.sub(r'^(?:(?:Reason|Elapsed|Run ID|Status)[^\n]*\n)+\s*', '', after.group(1).strip() + '\n') .strip() if after else ''
+    if not block:
+        head = text.split('\nStatus:')[0]
+        found = re.search(r'^\*\*.*', head, re.M | re.S)
+        block = found.group(0).strip() if found else ''
+    verdict = (re.search(r'Verdict\W+(Bullish|Neutral|Bearish)', block, re.I) or re.search(r'[\u2014:-]\s*\**(Bullish|Neutral|Bearish)\b', block, re.I)
+               or re.search(r'\b(Bullish|Neutral|Bearish)\b', block))
+    name = verdict.group(1).capitalize() if verdict else None
+    return {'text': block, 'verdict': name}
+
+
+def run_vibe(symbol):
+    """One Vibe-Trading run; raises RuntimeError with a short safe message."""
+    try:
+        result = subprocess.run([str(vibe_binary()), '-p', VIBE_PROMPT.format(symbol=symbol, listing=symbol.replace('.', '-') + '.US'), '--no-rich'], capture_output=True, text=True,
+                                timeout=VIBE_TIMEOUT, cwd=Path.home())
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('The run took too long and was stopped.') from None
+    except OSError:
+        raise RuntimeError('Vibe-Trading could not be started.') from None
+    write_log('vibe_' + symbol, result.returncode, result.stdout, result.stderr)
+    parsed = parse_vibe_output(result.stdout)
+    if result.returncode != 0 or not parsed['text']:
+        raise RuntimeError(explain_failure(result.stderr + result.stdout[-2000:]))
+    summary = _short(re.sub(r'\*\*|※', '', parsed['text']), 700)
+    return {'rating': parsed['verdict'], 'ratingText': parsed['verdict'] or '', 'date': date.today().isoformat(),
+            'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'summary': summary, 'text': parsed['text'][:6000], 'html': False}
+
+
 class Queue:
     """Runs the TradingAgents CLI one ticker at a time in a background thread."""
     def __init__(self):
@@ -151,13 +231,15 @@ class Queue:
 
     @staticmethod
     def idle():
-        return {'running': False, 'queue': [], 'current': None, 'done': [], 'errors': {}, 'startedAt': None}
+        return {'running': False, 'program': None, 'queue': [], 'current': None, 'done': [], 'errors': {}, 'startedAt': None}
 
     def snapshot(self):
         with self.lock:
             return json.loads(json.dumps(self.state))
 
-    def start(self, symbols, today=None):
+    def start(self, symbols, today=None, program='tradingagents'):
+        if program not in PROGRAMS:
+            raise ValueError('Unknown program.')
         clean = []
         for symbol in symbols if isinstance(symbols, list) else []:
             symbol = str(symbol).strip().upper()
@@ -166,28 +248,52 @@ class Queue:
         clean = clean[:MAX_SYMBOLS]
         if not clean:
             raise ValueError('Choose at least one valid symbol.')
-        if not available():
-            raise RuntimeError('TradingAgents is not installed at the configured location.')
+        if not (available() if program == 'tradingagents' else vibe_available()):
+            raise RuntimeError(('TradingAgents' if program == 'tradingagents' else 'Vibe-Trading') + ' is not installed at the configured location.')
         with self.lock:
             if self.state['running']:
                 return False
-            self.state = {'running': True, 'queue': list(clean), 'current': None, 'done': [], 'errors': {}, 'startedAt': time.time()}
-        threading.Thread(target=self._work, args=(clean, today or date.today().isoformat()), daemon=True).start()
+            self.state = {'running': True, 'program': program, 'queue': list(clean), 'current': None, 'done': [], 'errors': {}, 'startedAt': time.time()}
+        threading.Thread(target=self._work, args=(clean, today or date.today().isoformat(), program), daemon=True).start()
         return True
 
-    def _work(self, symbols, day):
+    def _work(self, symbols, day, program='tradingagents'):
         env, analysts = cli_environment()
         for symbol in symbols:
             with self.lock:
                 self.state['current'] = symbol
                 self.state['queue'] = [s for s in self.state['queue'] if s != symbol]
             error = None
+            if program == 'vibe':
+                try:
+                    for attempt in range(CONNECTION_RETRIES + 1):
+                        try:
+                            save_result('vibe', symbol, run_vibe(symbol))
+                            break
+                        except RuntimeError as exc:
+                            if attempt >= CONNECTION_RETRIES or str(exc) != CONNECTION_MESSAGE:
+                                raise
+                except RuntimeError as exc:
+                    error = str(exc)
+                except Exception:
+                    error = 'Vibe-Trading could not be started.'
+                with self.lock:
+                    (self.state['errors'].__setitem__(symbol, error) if error else self.state['done'].append(symbol))
+                continue
             try:
-                result = subprocess.run([str(python_path()), '-m', 'cli.main', '--ticker', symbol, '--date', day, '--analysts', analysts,
-                                         '--save', '--no-show', '--html'], cwd=TA_DIR, env=env, capture_output=True, text=True, timeout=RUN_TIMEOUT)
-                write_log(symbol, result.returncode, result.stdout, result.stderr)
+                for attempt in range(CONNECTION_RETRIES + 1):
+                    result = subprocess.run([str(python_path()), '-m', 'cli.main', '--ticker', symbol, '--date', day, '--analysts', analysts,
+                                             '--save', '--no-show', '--html'], cwd=TA_DIR, env=env, capture_output=True, text=True, timeout=RUN_TIMEOUT)
+                    write_log(symbol, result.returncode, result.stdout, result.stderr)
+                    # a dropped connection to the AI provider is usually momentary (the same stock ran fine minutes later)
+                    if result.returncode == 0 or explain_failure(result.stderr).split(' (')[0] != CONNECTION_MESSAGE.split(' (')[0]:
+                        break
                 if result.returncode != 0:
                     error = explain_failure(result.stderr)
+                else:
+                    saved = latest([symbol]).get(symbol)
+                    if saved:
+                        save_result('tradingagents', symbol, saved)
             except subprocess.TimeoutExpired as exc:
                 write_log(symbol, 'timeout', exc.stdout, exc.stderr)
                 error = 'The run took too long and was stopped.'
@@ -200,7 +306,8 @@ class Queue:
             self.state['current'] = None
 
 
-def public(symbols, queue):
+def public(symbols, queue, program='tradingagents'):
     """Payload for the dashboard: saved short conclusions plus the run state."""
-    return {'available': available(), 'results': latest(symbols), 'run': queue.snapshot(), 'today': date.today().isoformat(),
-            'checkedAt': datetime.now().astimezone().isoformat(timespec='seconds')}
+    program = program if program in PROGRAMS else 'tradingagents'
+    return {'program': program, 'available': available() if program == 'tradingagents' else vibe_available(), 'results': latest(symbols, program),
+            'run': queue.snapshot(), 'today': date.today().isoformat(), 'checkedAt': datetime.now().astimezone().isoformat(timespec='seconds')}

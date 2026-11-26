@@ -92,6 +92,33 @@ class IntrinsicValueTests(unittest.TestCase):
                                                           'fundamental_strength_grade': 'B-', 'equity_rank_score': 51.5, 'models_above_price': 2, 'models_total': 9}]})['rows']['ABC']
         self.assertEqual((er['strengthScore'], er['strengthGrade'], er['rankScore'], er['modelsAbove'], er['modelsTotal']), (63, 'B-', 51.5, 2, 9))
 
+    def test_ttm_methods_use_zyberno_values_and_stay_unavailable_without_inputs(self):
+        row = {'impliedShares': 100.0, 'fcf': 800.0, 'eps': 4.0, 'roe': 20.0, 'netIncome': 400.0, 'asOf': '2026-10-27'}
+        methods = intrinsic_value.calculate_methods_ttm(row)
+        # same DCF as the SEC path for 8 of free cash flow per share, and book value per share = 400 / 0.20 / 100 = 20
+        self.assertAlmostEqual(methods['dcf']['value'], intrinsic_value._dcf_value(8.0, .05, .09, .025, 5))
+        self.assertAlmostEqual(methods['graham']['value'], math.sqrt(22.5 * 4 * 20))
+        self.assertEqual(methods['dcf']['inputs']['source'], 'Zyberno TTM')
+        self.assertIsNone(methods['ddm']['value'])
+        none = intrinsic_value.calculate_methods_ttm({'impliedShares': 100.0, 'fcf': -5.0, 'eps': -1.0, 'roe': 10.0, 'netIncome': -3.0})
+        self.assertIsNone(none['dcf']['value'])
+        self.assertIsNone(none['graham']['value'])
+        self.assertTrue(none['dcf']['reason'] and none['graham']['reason'])
+        self.assertIsNone(intrinsic_value.calculate_methods_ttm({})['dcf']['value'])
+
+    def test_payload_carries_ttm_methods_for_every_zyberno_row(self):
+        csv_text = ('snapshot_date,symbol,intrinsic_value_usd,market_cap_usd,price_usd,record_computed_utc,roe_pct,free_cash_flow_ttm_usd,'
+                    'net_income_ttm_usd,eps_diluted_ttm_usd\n2026-11-01,AAPL,500,10000,100,2026-10-30,20,800,400,4\n')
+
+        def response(url, user_agent=None, timeout=30):
+            return json.dumps({'meta': {}, 'rows': []}).encode() if url == intrinsic_value.EQUITY_RANK_URL else csv_text.encode()
+        with patch.object(intrinsic_value, '_request', side_effect=response):
+            payload = intrinsic_value.build_payload(['AAPL'])
+        ttm = payload['sources']['ttm']
+        self.assertEqual(ttm['status'], 'available')
+        self.assertGreater(ttm['rows']['AAPL']['dcf']['value'], 0)
+        self.assertEqual(payload['sources']['sec']['status'], 'contact_required')
+
     def test_fresh_rate_limited_cache_is_not_retried_within_24_hours(self):
         previous = {'schema': intrinsic_value.PAYLOAD_SCHEMA, 'at': datetime.now(timezone.utc).isoformat(),
                     'sources': {'sec': {'status': 'rate_limited', 'rows': {}}}}

@@ -132,7 +132,11 @@ async function staticApi(path, method, body) {
   if (route === '/api/top10-history') return siteFile('top10_history.json', false).catch(() => ({ days: [] }));
   if (route === '/api/market-history') return siteFile('history.json', false);
   if (route === '/api/intrinsic-values') return siteFile('intrinsic_values.json', false);
-  if (route === '/api/agents') return { available: false, results: {}, run: {} };   // runs only on the PC with the user's own install
+  if (route === '/api/agents') {   // runs only on the PC with the user's own install; the online copy shows the answers saved so far
+    const q = new URLSearchParams(query), program = q.get('program') || 'tradingagents', saved = (await siteFile('pc_analysis.json', false).catch(() => ({})))[program] || {};
+    const results = {}; (q.get('symbols') || '').split(',').forEach(s => { if (saved[s]) results[s] = saved[s]; });
+    return { program, available: false, results, run: {}, checkedAt: new Date().toISOString() };
+  }
   if (route === '/api/portfolio') { const st = pfStore(); return { ...pfSummary(pfFind(st, new URLSearchParams(query).get('id'))), portfolios: pfListing(st) }; }
   if (route === '/api/portfolio/history') {
     const id = new URLSearchParams(query).get('id'), p = pfStore().portfolios.flatMap(d => [...d.positions, ...d.closed]).find(x => x.id === id);

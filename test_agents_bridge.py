@@ -92,6 +92,65 @@ class AgentsBridgeTests(unittest.TestCase):
         with patch.object(agents_bridge, 'available', return_value=False), self.assertRaises(RuntimeError):
             queue.start(['AXON'])
 
+    def test_a_dropped_connection_is_retried_once_then_reported(self):
+        calls = []
+
+        def flaky(command, **kwargs):
+            calls.append(1)
+            return type('R', (), {'returncode': 1 if len(calls) == 1 else 0, 'stdout': '', 'stderr': 'OpenAIConnectionError: Connection error.'})()
+        queue = agents_bridge.Queue()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        with patch.object(agents_bridge, 'TA_HOME', Path(tmp.name)), patch.object(agents_bridge, 'available', return_value=True), \
+             patch.object(agents_bridge, 'python_path', return_value=Path('/x/python')), patch.object(agents_bridge.subprocess, 'run', side_effect=flaky):
+            queue.start(['AXON'])
+            for _ in range(200):
+                if not queue.snapshot()['running']:
+                    break
+                import time
+                time.sleep(0.01)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(queue.snapshot()['done'], ['AXON'])
+
+    def test_vibe_trading_answer_and_verdict_are_taken_from_its_plain_output(self):
+        out = ("  - get_stock_profile CBRE.US  OK 1.1s\n  OK 2.6s\n**CBRE Group** provides real-estate services.\n\n**Verdict \u2014 Neutral:** earnings improved.\n"
+               "\nStatus: SUCCESS\nElapsed: 1m 14s\nRun ID: 1\nRun dir: /x\nReason: released\n\n**CBRE Group** provides real-estate services.\n\n"
+               "**Verdict \u2014 Neutral:** earnings improved.\n--show 1  |  --continue 1 \"...\"\n")
+        parsed = agents_bridge.parse_vibe_output(out)
+        self.assertEqual(parsed['verdict'], 'Neutral')
+        self.assertTrue(parsed['text'].startswith('**CBRE Group** provides'))
+        self.assertNotIn('--show', parsed['text'])
+        self.assertEqual(agents_bridge.parse_vibe_output('no answer')['text'], '')
+        self.assertIsNone(agents_bridge.parse_vibe_output('**x** nothing')['verdict'])
+        self.assertEqual(agents_bridge.parse_vibe_output('Run dir: /x\n\n**CBRE.US (NYSE) \u2014 Neutral.** CBRE provides services.\n--show 1')['verdict'], 'Neutral')
+        self.assertEqual(agents_bridge.parse_vibe_output('Run dir: /x\n\nThe outlook is bearish. **Verdict: Bearish** weak.\n')['verdict'], 'Bearish')
+
+    def test_vibe_run_is_saved_in_the_platform_file_and_read_back(self):
+        out = "**CBRE** is a broker.\n**Verdict \u2014 Bearish:** weak.\nStatus: SUCCESS\nRun dir: /x\n\n**CBRE** is a broker.\n**Verdict \u2014 Bearish:** weak.\n"
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fake = lambda command, **kw: type('R', (), {'returncode': 0, 'stdout': out, 'stderr': ''})()
+        queue = agents_bridge.Queue()
+        with patch.object(agents_bridge, 'STORE', Path(tmp.name) / 'pc.json'), patch.object(agents_bridge, 'TA_HOME', Path(tmp.name)), \
+             patch.object(agents_bridge, 'vibe_available', return_value=True), patch.object(agents_bridge, 'vibe_binary', return_value=Path('/x/vt')), \
+             patch.object(agents_bridge.subprocess, 'run', side_effect=fake):
+            self.assertTrue(queue.start(['CBRE'], program='vibe'))
+            for _ in range(200):
+                if not queue.snapshot()['running']:
+                    break
+                import time
+                time.sleep(0.01)
+            state = queue.snapshot()
+            result = agents_bridge.public(['CBRE', 'NONE'], queue, 'vibe')
+        self.assertEqual((state['done'], state['program']), (['CBRE'], 'vibe'))
+        self.assertEqual(list(result['results']), ['CBRE'])
+        self.assertEqual(result['results']['CBRE']['rating'], 'Bearish')
+        self.assertIn('broker', result['results']['CBRE']['summary'])
+
+    def test_unknown_program_is_rejected(self):
+        with self.assertRaises(ValueError):
+            agents_bridge.Queue().start(['AXON'], program='nope')
+
     def test_queue_runs_symbols_in_order_and_records_failures(self):
         calls = []
 

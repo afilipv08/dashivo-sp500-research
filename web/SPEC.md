@@ -241,7 +241,10 @@ annual FCF is operating cash flow minus property/plant/equipment purchases, usin
 share)`; and (3) Gordon-growth DDM, `next annual dividend per share / (9% required return − 2.5%
 dividend growth)`. Inputs, filing dates and assumptions accompany results. These baseline assumptions
 are unconfirmed, not forecasts; missing, nonpositive or incompatible inputs produce unavailable
-results rather than invented estimates. SEC calls are build-side, paced below 10 requests/second, and
+results rather than invented estimates. While SEC filings are not connected (no `SEC_CONTACT_EMAIL`), `sources.ttm` gives the DCF and the Graham Number
+from Zyberno's trailing-twelve-month values (shares = market cap / source price, book value = net income / ROE, so both are approximate and
+labelled as such); the dividend model stays unavailable because no free source here carries dividends. A filing-based value, when present,
+always wins over the derived one. SEC calls are build-side, paced below 10 requests/second, and
 skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 429 stops further
 source requests in that build; the current snapshot is retained and the next refresh waits for its
 24-hour cache window.
@@ -268,33 +271,29 @@ available rules. The thresholds are baseline choices, unconfirmed by the user, a
 The snapshot carries `schema` (`PAYLOAD_SCHEMA`), and a cache without the current schema is rebuilt, so new published fields
 do not wait for the 24-hour window.
 
-## AI agents (local TradingAgents)
+## AI agents (programs on the owner's PC)
 
-The AI agents page (`web/agents.js`, `agents_bridge.py`) shows short conclusions for the current Top 10 from the
-user's own TradingAgents install (default `~/5_GitHub_programs/TradingAgents`, override with `TRADINGAGENTS_DIR`; its
-data lives in `~/.tradingagents`, override with `TRADINGAGENTS_HOME`). It is **local only** by decision: a run spends the
-owner's AI account and minutes, and the results are model output. The bridge never reads or copies keys.
-- Reading: the newest readable saved report per symbol under `logs/reports/<SYMBOL>_<timestamp>/` gives the
-  five-tier rating, analysis date and the first ~330 characters of the portfolio decision's executive summary; the full
-  `complete_report.html` opens from `/agents-report/<name>` (validated name, loopback visitors only).
-- Running: `POST /api/agents/run` (loopback only; phone/Tailscale visitors get 403) queues up to 10 symbols and runs
-  `python -m cli.main --ticker … --date today --analysts … --save --no-show --html` one at a time with the repository's
-  own virtualenv, taking the provider, models, depth and analysts from the CLI's saved `cli_prefs.json`; a run is killed
-  after 45 minutes. The UI asks for confirmation and offers a run only for stocks without a conclusion or with one older
-  than the report behind the Top 10. The venv's `tradingagents` launcher is bypassed because it points to an old path.
-- The online (GitHub Pages) version shows an explanation instead; no results are published. Ratings and summaries are
-  not investment advice and are not forecasts.
-
-## Sources and analyses
-
-The Sources and analyses page (`web/sources.js`) is the contents page asked for: each platform with its status (in use, link
-only, candidate, installed on this PC), its free access and limits, and what it is useful for, plus the question each analysis
-page answers and the rules for adding a source (free tier first, check terms before showing data on the public site, keys only
-in Actions secrets or on the PC, missing data never estimated). Limits were read from the providers' own pages on 25–26.11.2026
-(Alpha Vantage 25 requests/day and 5/minute, Finnhub 60 calls/minute, Financial Modeling Prep 250 calls/day with a licence needed
-to display or redistribute, OpenBB v5 under Apache-2.0, FRED free and optional per the TradingAgents README); they can change
-and are indicative. Vibe-Trading and freqtrade were only found on the owner's PC and are not evaluated. Stooq and FinanceToolkit
-were not verified and are left out.
+The AI agents page (`web/agents.js`, `agents_bridge.py`) queries programs installed on the user's PC for the current Top 10
+and keeps every answer in the platform. It is **local only** by decision: a run spends the owner's AI account and minutes, and
+the results are model output. The bridge never reads or copies keys. A tab per program; one run at a time across programs.
+- **TradingAgents** (default `~/5_GitHub_programs/TradingAgents`, override `TRADINGAGENTS_DIR`; data in `~/.tradingagents`, override
+  `TRADINGAGENTS_HOME`): the newest readable saved report per symbol under `logs/reports/<SYMBOL>_<timestamp>/` gives the
+  five-tier rating, analysis date and ~330 characters of the portfolio decision's executive summary; `complete_report.html` opens
+  from `/agents-report/<name>` (validated name, loopback visitors only). A run is `python -m cli.main --ticker … --date today
+  --analysts … --save --no-show --html` with the repository's own virtualenv (its `tradingagents` launcher points to an old path),
+  taking provider, models, depth and analysts from the CLI's saved `cli_prefs.json`; killed after 45 minutes.
+- **Vibe-Trading** (`vibe-trading` on the PATH or `~/.local/bin`, override `VIBE_TRADING_BIN`; its provider is set in
+  `~/.vibe-trading/.env`): `vibe-trading -p "<fixed prompt>" --no-rich` (plain output; `--json` carries no answer text). The final
+  answer is read from the block after the run header, the Bullish/Neutral/Bearish verdict from its "Verdict" line, killed after 20
+  minutes. Its answers redact figures it cannot ground, and a run may degrade to a deterministic fallback; both are shown as given.
+- Every successful result is saved in `Output/pc_analysis.json` (written atomically; it is not in the bot's commit list, so it is
+  published only when the owner commits it). `build_site.py` copies it to `data/pc_analysis.json`, so the online copy shows the saved
+  answers read-only. A dropped connection to the AI provider is retried once (it was transient on 26.11.2026); failures are explained
+  from known error classes and logged to `~/.tradingagents/logs/dashboard_runs/`.
+- `POST /api/agents/run` (loopback only; phone/Tailscale visitors get 403) queues up to 10 symbols for a program; the UI asks for
+  confirmation and offers runs for stocks with no conclusion or one older than the report behind the Top 10, or for all ten.
+- Ratings and summaries are not investment advice and not forecasts. Other programs found on the PC (freqtrade, scrapling-lab) are
+  evaluated one at a time before being added.
 
 ## eToro links
 

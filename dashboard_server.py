@@ -366,7 +366,7 @@ def make_server(port=8765, lan=False):
                     return
                 body = self.body(4 * 1024) or {}
                 try:
-                    started = AGENT_QUEUE.start(body.get('symbols'))
+                    started = AGENT_QUEUE.start(body.get('symbols'), program=body.get('program') or 'tradingagents')
                 except ValueError as exc:
                     self.reply(400, {'error': str(exc)})
                 except RuntimeError as exc:
@@ -417,8 +417,9 @@ def make_server(port=8765, lan=False):
                     self.reply(503, {'error': 'Intrinsic-value source data is unavailable right now.'})
             elif self.path.startswith('/api/agents'):
                 from urllib.parse import parse_qs, urlsplit
-                symbols = [x for x in parse_qs(urlsplit(self.path).query).get('symbols', [''])[0].split(',') if x][:agents_bridge.MAX_SYMBOLS]
-                self.reply(200, agents_bridge.public(symbols, AGENT_QUEUE))
+                query = parse_qs(urlsplit(self.path).query)
+                symbols = [x for x in query.get('symbols', [''])[0].split(',') if x][:agents_bridge.MAX_SYMBOLS]
+                self.reply(200, agents_bridge.public(symbols, AGENT_QUEUE, query.get('program', ['tradingagents'])[0]))
             elif self.path.startswith('/agents-report/'):
                 name = self.path[len('/agents-report/'):].split('?', 1)[0]
                 path = agents_bridge.report_html(name.rsplit('_', 2)[0], name) if self.local() else None

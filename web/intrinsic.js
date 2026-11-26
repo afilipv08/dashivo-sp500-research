@@ -28,7 +28,7 @@ function ivMethodCell(method, sourceStatus) {
   }
   const details = [method.reason, method.inputs && Object.entries(method.inputs).map(([k, v]) => k + ': ' + (num(v) ? nf(v, 3) : v)).join(' · '),
     method.assumptions && Object.entries(method.assumptions).map(([k, v]) => k + ': ' + (num(v) ? nf(v * (Math.abs(v) <= 1 ? 100 : 1), 1) + (Math.abs(v) <= 1 ? '%' : '') : v)).join(' · ')].filter(Boolean).join('\n');
-  return h('td', null, num(method.value) && method.value > 0 ? ivValue(method.value, method.inputs?.filed || method.inputs?.fiscalYear, details) : ivUnavailable(method.reason || details));
+  return h('td', null, num(method.value) && method.value > 0 ? ivValue(method.value, method.inputs?.filed || method.inputs?.fiscalYear || method.inputs?.asOf, details) : ivUnavailable(method.reason || details));
 }
 function ivSourceCell(source, symbol, kind) {
   const item = ivLookup(source?.rows, symbol);
@@ -88,8 +88,8 @@ Views.intrinsic = () => {
   const selectionRows = selection(), top = selectionRows ? ranked(selectionRows).slice(0, 10) : [];
   const data = INTRINSIC.data || {}, sources = data.sources || {}, methodsStatus = sources.sec?.status;
   const alert = methodsStatus === 'contact_required'
-    ? h('div', { class: 'iv-alert' }, h('b', null, tr('SEC-based methods are unavailable until secure access is configured.')),
-      ' ', tr('Add SEC_CONTACT_EMAIL as a GitHub Actions secret; no email is published. Until then, all three calculation methods remain unavailable.'))
+    ? h('div', { class: 'iv-alert' }, h('b', null, tr('SEC filings are not connected yet.')),
+      ' ', tr('DCF and Graham Number use Zyberno trailing-twelve-month values (shares and book value are implied, so approximate); the dividend model needs SEC filings. Add SEC_CONTACT_EMAIL as a GitHub Actions secret to use filings; no email is published.'))
     : null;
   const body = INTRINSIC.error ? h('div', { class: 'empty' }, tr('Intrinsic-value data is unavailable.'), ' ', INTRINSIC.error)
     : !INTRINSIC.loaded ? h('div', { class: 'empty' }, tr('Loading verified source data…'))
@@ -104,13 +104,13 @@ Views.intrinsic = () => {
                 h('th', null, ivLink('Zyberno · approx.', 'https://zyberno.com/', 'iv-head-link')),
                 h('th', null, tr('DCF · FCF')), h('th', null, tr('Graham Number')), h('th', null, tr('Gordon DDM')))),
             h('tbody', null, top.map(stock => {
-              const sec = ivLookup(sources.sec?.rows, stock.symbol) || {};
+              const sec = ivLookup(sources.sec?.rows, stock.symbol) || {}, ttm = ivLookup(sources.ttm?.rows, stock.symbol) || {};   // SEC filings first, trailing-twelve-month values otherwise
               return h('tr', null,
                 h('td', null, h('b', { class: 'iv-ticker notr' }, stock.symbol), h('small', { class: 'iv-company' }, stock.company)),
                 h('td', null, ivLivePrice(stock)),
                 ivSourceCell(sources.equityRank, stock.symbol, 'equityRank'), ivFvcCell(stock.symbol, data.fvcEmbedUrl),
                 ivSourceCell(sources.zyberno, stock.symbol, 'zyberno'),
-                ivMethodCell(sec.dcf, methodsStatus), ivMethodCell(sec.graham, methodsStatus), ivMethodCell(sec.ddm, methodsStatus));
+                ivMethodCell(sec.dcf?.value ? sec.dcf : ttm.dcf || sec.dcf, methodsStatus), ivMethodCell(sec.graham?.value ? sec.graham : ttm.graham || sec.graham, methodsStatus), ivMethodCell(sec.ddm?.value ? sec.ddm : ttm.ddm || sec.ddm, methodsStatus));
             }))));
   return h('div', null,
     card('Intrinsic value · current Top 10', 'Active filters and ranking determine these stocks. Estimates are not price targets or investment advice.',

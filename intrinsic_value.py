@@ -19,7 +19,7 @@ ZYBERNO_URL = ('https://huggingface.co/datasets/Zyberno/us-equity-valuation-cros
 SEC_TICKERS_URL = 'https://www.sec.gov/files/company_tickers_exchange.json'
 SEC_FACTS_URL = 'https://data.sec.gov/api/xbrl/companyfacts/CIK{:010d}.json'
 FVC_EMBED_URL = 'https://www.fairvalue-calculator.com/embed/{}.svg'
-PAYLOAD_SCHEMA = 2   # bump when published fields change so a fresh cache without them is rebuilt
+PAYLOAD_SCHEMA = 3   # bump when published fields change so a fresh cache without them is rebuilt
 ASSUMPTIONS = {'dcf_growth': 0.05, 'terminal_growth': 0.025, 'discount_rate': 0.09, 'years': 5,
                'graham_multiplier': 22.5, 'ddm_required_return': 0.09}
 
@@ -156,6 +156,37 @@ def _instant_fact(companyfacts, tags, units):
     return {'value': float(result['val']), 'end': result['end'], 'filed': result.get('filed')}
 
 
+def _dcf_value(fcf_per_share, g, r, terminal, years):
+    pv = sum(fcf_per_share * (1 + g) ** year / (1 + r) ** year for year in range(1, years + 1))
+    return pv + (fcf_per_share * (1 + g) ** years * (1 + terminal) / (r - terminal)) / (1 + r) ** years
+
+
+def calculate_methods_ttm(z, assumptions=None):
+    """DCF and Graham Number from Zyberno's trailing-twelve-month values, used while SEC filings are not available.
+    Shares are implied (market cap / source price) and book value is net income / ROE, so both are approximations."""
+    a = {**ASSUMPTIONS, **(assumptions or {})}
+    shares = _number(z.get('impliedShares'))
+    fcf, eps, roe, income = _number(z.get('fcf')), _number(z.get('eps')), _number(z.get('roe')), _number(z.get('netIncome'))
+    source = 'Zyberno TTM'
+    methods = {}
+    if not shares or shares <= 0 or fcf is None or fcf <= 0 or a['discount_rate'] <= a['terminal_growth']:
+        methods['dcf'] = {'value': None, 'reason': 'Positive free cash flow and implied shares are needed for the DCF.'}
+    else:
+        per_share = fcf / shares
+        methods['dcf'] = {'value': _dcf_value(per_share, a['dcf_growth'], a['discount_rate'], a['terminal_growth'], int(a['years'])), 'reason': None,
+                          'inputs': {'source': source, 'fcf': fcf, 'impliedShares': shares, 'fcfPerShare': per_share, 'asOf': z.get('asOf')},
+                          'assumptions': {'growth': a['dcf_growth'], 'discountRate': a['discount_rate'], 'terminalGrowth': a['terminal_growth'], 'years': int(a['years'])}}
+    if not shares or shares <= 0 or eps is None or eps <= 0 or roe is None or roe <= 0 or income is None or income <= 0:
+        methods['graham'] = {'value': None, 'reason': 'Positive EPS, ROE, net income and implied shares are needed for the Graham Number.'}
+    else:
+        book = income / (roe / 100) / shares
+        methods['graham'] = {'value': math.sqrt(a['graham_multiplier'] * eps * book), 'reason': None,
+                             'inputs': {'source': source, 'eps': eps, 'bookValuePerShare': book, 'asOf': z.get('asOf')},
+                             'assumptions': {'multiplier': a['graham_multiplier']}}
+    methods['ddm'] = {'value': None, 'reason': 'Dividends are not in the free valuation data; the dividend model needs SEC filings.'}
+    return methods
+
+
 def calculate_methods(companyfacts, assumptions=None):
     """Calculate transparent per-share methods from SEC XBRL facts; missing inputs stay unavailable."""
     a = {**ASSUMPTIONS, **(assumptions or {})}
@@ -181,9 +212,7 @@ def calculate_methods(companyfacts, assumptions=None):
         methods['dcf'] = {'value': None, 'reason': reason}
     else:
         annual_per_share = fcf / share_count
-        pv = sum(annual_per_share * (1 + g) ** year / (1 + r) ** year for year in range(1, years + 1))
-        terminal_value = (annual_per_share * (1 + g) ** years * (1 + terminal) / (r - terminal)) / (1 + r) ** years
-        methods['dcf'] = {'value': pv + terminal_value, 'reason': None,
+        methods['dcf'] = {'value': _dcf_value(annual_per_share, g, r, terminal, years), 'reason': None,
                           'inputs': {'fcf': fcf, 'shares': share_count, 'fcfPerShare': annual_per_share,
                                      'fiscalYear': cfo['end'], 'filed': cfo.get('filed')},
                           'assumptions': {'growth': g, 'discountRate': r, 'terminalGrowth': terminal, 'years': years}}
@@ -299,5 +328,9 @@ def build_payload(symbols, previous=None, contact_email=None):
     if sources['sec']['status'] in ('unavailable', 'rate_limited', 'contact_required') and previous_sec.get('rows'):
         sources['sec'] = {**previous_sec, 'status': 'stale', 'staleSince': datetime.now(timezone.utc).isoformat(timespec='seconds')}
 
+    # the methods that need no SEC access: computed from the same dated Zyberno rows the page already shows
+    zyberno_rows = (sources.get('zyberno') or {}).get('rows') or {}
+    sources['ttm'] = {'status': 'available' if zyberno_rows else 'unavailable', 'at': (sources.get('zyberno') or {}).get('at'), 'url': ZYBERNO_URL,
+                      'rows': {symbol: calculate_methods_ttm(row, ASSUMPTIONS) for symbol, row in zyberno_rows.items()}}
     return {'schema': PAYLOAD_SCHEMA, 'at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'assumptions': ASSUMPTIONS,
             'sources': sources, 'fvcEmbedUrl': FVC_EMBED_URL}

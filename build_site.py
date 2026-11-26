@@ -195,6 +195,12 @@ def build(refresh=False):
 
     import top10_history
     write_json('top10_history.json', top10_history.load())
+    pc_results = BASE / 'Output' / 'pc_analysis.json'   # answers of the programs on the owner's PC, kept in the platform
+    if pc_results.is_file():
+        try:
+            write_json('pc_analysis.json', json.loads(pc_results.read_text(encoding='utf-8')))
+        except ValueError:
+            pass
     write_json('meta.json', meta)
     (SITE / 'manifest.webmanifest').write_text(json.dumps({
         'name': 'Dashivo SP500 Research', 'short_name': 'SP500', 'start_url': './', 'scope': './', 'display': 'standalone',
