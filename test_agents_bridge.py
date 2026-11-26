@@ -176,6 +176,31 @@ class AgentsBridgeTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 agents_bridge.run_freqtrade(symbol)
 
+    def test_the_all_button_runs_every_stock_program_in_turn_and_skips_missing_ones(self):
+        order = []
+        out = "**X**\n**Verdict: Neutral**\nStatus: SUCCESS\nRun dir: /x\n\n**X**\n**Verdict: Neutral**\n"
+
+        def fake(command, **kw):
+            order.append('vibe' if 'vt' in str(command[0]) else 'ta')
+            return type('R', (), {'returncode': 0, 'stdout': out, 'stderr': ''})()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        with patch.object(agents_bridge, 'STORE', Path(tmp.name) / 'pc.json'), patch.object(agents_bridge, 'TA_HOME', Path(tmp.name)), \
+             patch.object(agents_bridge, 'available', return_value=True), patch.object(agents_bridge, 'python_path', return_value=Path('/x/python')), \
+             patch.object(agents_bridge, 'vibe_available', return_value=True), patch.object(agents_bridge, 'vibe_binary', return_value=Path('/x/vt')), \
+             patch.object(agents_bridge.subprocess, 'run', side_effect=fake):
+            queue = agents_bridge.Queue()
+            self.assertTrue(queue.start(['AAA', 'BBB'], program='all'))
+            for _ in range(300):
+                if not queue.snapshot()['running']:
+                    break
+                import time
+                time.sleep(0.01)
+        self.assertEqual(order, ['ta', 'ta', 'vibe', 'vibe'])
+        self.assertFalse(queue.snapshot()['running'])
+        with patch.object(agents_bridge, 'available', return_value=False), patch.object(agents_bridge, 'vibe_available', return_value=False), self.assertRaises(RuntimeError):
+            agents_bridge.Queue().start(['AAA'], program='all')
+
     def test_queue_runs_symbols_in_order_and_records_failures(self):
         calls = []
 

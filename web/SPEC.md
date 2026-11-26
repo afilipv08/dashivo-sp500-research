@@ -310,6 +310,9 @@ the results are model output. The bridge never reads or copies keys. A tab per p
   of `SampleStrategy` over the last 90 days (100 USDT per trade, one open trade), then saves trades, win rate, total profit % on the
   stake and deepest drawdown. Stablecoins, symbols that are not plain tickers and pairs missing on Binance are reported as not
   testable. It tests one example strategy on the past; it is not a forecast or advice.
+- **One button**: the Verdict page offers "Run all programs for the Top 10": `POST /api/agents/run` with `program: "all"` runs
+  TradingAgents then Vibe-Trading (the installed ones) over the Top 10, one stock at a time, saving every answer in the platform
+  file; the page follows the run (every 15 s) and fills in as answers arrive. freqtrade is separate because it works on the crypto Top 10.
 - Ratings and summaries are not investment advice and not forecasts. scrapling-lab (Flashscore scraping) is unrelated to stocks and
   not used here.
 

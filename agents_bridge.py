@@ -18,6 +18,7 @@ TA_DIR = Path(os.environ.get('TRADINGAGENTS_DIR') or Path.home() / '5_GitHub_pro
 TA_HOME = Path(os.environ.get('TRADINGAGENTS_HOME') or Path.home() / '.tradingagents')
 STORE = Path(__file__).resolve().parent / 'Output' / 'pc_analysis.json'   # the platform's own copy of every result, shown after restarts
 PROGRAMS = ('tradingagents', 'vibe', 'freqtrade')
+STOCK_PROGRAMS = ('tradingagents', 'vibe')   # what the single 'all' button runs for the stock Top 10
 FT_DIR = Path(os.environ.get('FREQTRADE_DIR') or Path.home() / '5_GitHub_programs' / 'freqtrade')
 FT_WORK = Path.home() / '.freqtrade_dashboard'
 FT_STRATEGY = 'SampleStrategy'
@@ -324,7 +325,7 @@ class Queue:
             return json.loads(json.dumps(self.state))
 
     def start(self, symbols, today=None, program='tradingagents'):
-        if program not in PROGRAMS:
+        if program not in PROGRAMS + ('all',):
             raise ValueError('Unknown program.')
         clean = []
         for symbol in symbols if isinstance(symbols, list) else []:
@@ -334,17 +335,30 @@ class Queue:
         clean = clean[:MAX_SYMBOLS]
         if not clean:
             raise ValueError('Choose at least one valid symbol.')
-        ok = {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}[program]()
-        if not ok:
-            raise RuntimeError(PROGRAM_NAMES[program] + ' is not installed at the configured location.')
+        checks = {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}
+        programs = [p for p in STOCK_PROGRAMS if checks[p]()] if program == 'all' else [program]
+        if not programs or (program != 'all' and not checks[program]()):
+            raise RuntimeError(('No program' if program == 'all' else PROGRAM_NAMES[program]) + ' is installed at the configured location.')
         with self.lock:
             if self.state['running']:
                 return False
             self.state = {'running': True, 'program': program, 'queue': list(clean), 'current': None, 'done': [], 'errors': {}, 'startedAt': time.time()}
-        threading.Thread(target=self._work, args=(clean, today or date.today().isoformat(), program), daemon=True).start()
+        threading.Thread(target=self._work, args=(clean, today or date.today().isoformat(), programs), daemon=True).start()
         return True
 
-    def _work(self, symbols, day, program='tradingagents'):
+    def _work(self, symbols, day, programs):
+        """The programs run one after the other, each over all symbols; the run is over when the last one is."""
+        for program in programs:
+            with self.lock:
+                self.state['queue'] = list(symbols)
+                if len(programs) > 1:
+                    self.state['program'] = program
+            self._work_program(symbols, day, program)
+        with self.lock:
+            self.state['running'] = False
+            self.state['current'] = None
+
+    def _work_program(self, symbols, day, program):
         env, analysts = cli_environment()
         for symbol in symbols:
             with self.lock:
@@ -389,9 +403,6 @@ class Queue:
                 error = 'TradingAgents could not be started.'
             with self.lock:
                 (self.state['errors'].__setitem__(symbol, error) if error else self.state['done'].append(symbol))
-        with self.lock:
-            self.state['running'] = False
-            self.state['current'] = None
 
 
 def public(symbols, queue, program='tradingagents'):

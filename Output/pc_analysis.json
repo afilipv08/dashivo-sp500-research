@@ -4,38 +4,38 @@
    "rating": "Neutral",
    "ratingText": "Neutral",
    "date": "2026-11-26",
-   "generated": "2026-11-26 22:45:35",
-   "summary": "CBRE.US (NYSE) — Neutral. CBRE provides commercial real-estate leasing, investment and property-management services, alongside critical-infrastructure services. Its SEC-reported revenue and net income both rose year over year in the quarter ended September 30, 2026 (filed October 22). Yahoo market data shows a USD 137.89 close for the November 25 U.S. trading session. Key risks: Property transactions are sensitive to financing conditions and market activity; debt and thin profitability add pressure. Main reason for Neutral: improving results are balanced by cyclical exposure. A current intraday quote was not retrieved.",
-   "text": "**CBRE.US (NYSE) — Neutral.** CBRE provides commercial real-estate leasing, investment and property-management services, alongside critical-infrastructure services. Its SEC-reported revenue and net income both rose year over year in the quarter ended September 30, 2026 (filed October 22). Yahoo market data shows a **USD 137.89** close for the November 25 U.S. trading session.\n\n**Key risks:** Property transactions are sensitive to financing conditions and market activity; debt and thin profitability add pressure. **Main reason for Neutral:** improving results are balanced by cyclical exposure. A current intraday quote was **not retrieved**.\n\nSources: SEC quarterly financials, [CBRE company site](https://www.cbre.com/about-us), Yahoo market data.",
+   "generated": "2026-11-26 23:16:15",
+   "summary": "CBRE.US (NYSE) — Neutral. CBRE provides commercial real-estate brokerage, property management, investment and infrastructure services. Its latest retrieved SEC filing covers the quarter ended September 30, 2026 and was filed October 22; reliable latest-quarter revenue and profit figures were not retrieved for this summary. The Yahoo-sourced November 25, 2026 close was US$137.89. Key risks: Property transactions depend on financing conditions and market activity, while debt adds financial risk. Main reason for Neutral: those cyclical risks cannot be weighed against verified latest-quarter earnings here. Latest-quarter operating cash flow was also not retrieved.",
+   "text": "**CBRE.US (NYSE) — Neutral.** CBRE provides commercial real-estate brokerage, property management, investment and infrastructure services. Its latest retrieved SEC filing covers the quarter ended **September 30, 2026** and was filed **October 22**; reliable latest-quarter revenue and profit figures were **not retrieved** for this summary. The Yahoo-sourced **November 25, 2026** close was **US$137.89**.\n\n**Key risks:** Property transactions depend on financing conditions and market activity, while debt adds financial risk. **Main reason for Neutral:** those cyclical risks cannot be weighed against verified latest-quarter earnings here. Latest-quarter operating cash flow was also **not retrieved**.\n\nSources: [SEC filing](https://www.sec.gov/Archives/edgar/data/1138118/000113811826000031/cbre-20260930.htm); [CBRE business description](https://www.cbre.com/about-us).",
    "html": false
   },
   "WY": {
    "rating": "Neutral",
    "ratingText": "Neutral",
    "date": "2026-11-26",
-   "generated": "2026-11-26 22:43:56",
-   "summary": "Business: Weyerhaeuser (WY.US, NYSE) manages timberlands, makes wood products and develops land, according to its company website. Latest performance: SEC figures for the quarter ended September 30, 2026, filed October 30, show revenue rose year over year while net income fell. Yahoo’s November 25, 2026 adjusted close was US$20.52. Key risks: Housing and wood-product demand, timber prices, and pressure on earnings. September-quarter cash flow was not retrieved by the financial-statement tool. Verdict: Neutral — stronger revenue has not translated into stronger earnings. This is analysis, not a trading recommendation.",
-   "text": "**Business:** Weyerhaeuser (WY.US, NYSE) manages timberlands, makes wood products and develops land, according to its company website.\n\n**Latest performance:** SEC figures for the quarter ended September 30, 2026, filed October 30, show revenue rose year over year while net income fell. Yahoo’s November 25, 2026 adjusted close was **US$20.52**.\n\n**Key risks:** Housing and wood-product demand, timber prices, and pressure on earnings. September-quarter cash flow was **not retrieved** by the financial-statement tool.\n\n**Verdict: Neutral** — stronger revenue has not translated into stronger earnings. This is analysis, not a trading recommendation.",
+   "generated": "2026-11-26 23:17:22",
+   "summary": "Business: WY.US is Weyerhaeuser, a timberland REIT with timberlands, real-estate and wood-products operations, according to its [annual filing](https://www.sec.gov/Archives/edgar/data/106535/000119312526051422/wy-20251231.htm) for the year ended December 31, 2025. Latest performance: SEC statements for the quarter ended September 30, 2026, filed October 30, report revenue of (omitted) and net income of (omitted). Net income was (omitted) in the preceding quarter. Yahoo’s latest retrieved close for NYSE-listed WY.US was $20.52 USD on November 25, 2026. Risks: Housing demand, wood-product prices and wildfire exposure could pressure earnings.",
+   "text": "**Business:** WY.US is Weyerhaeuser, a timberland REIT with timberlands, real-estate and wood-products operations, according to its [annual filing](https://www.sec.gov/Archives/edgar/data/106535/000119312526051422/wy-20251231.htm) for the year ended December 31, 2025.\n\n**Latest performance:** SEC statements for the quarter ended September 30, 2026, filed October 30, report revenue of **(omitted※)** and net income of **(omitted※)**. Net income was **(omitted※)** in the preceding quarter. Yahoo’s latest retrieved close for NYSE-listed WY.US was **$20.52 USD** on November 25, 2026.\n\n**Risks:** Housing demand, wood-product prices and wildfire exposure could pressure earnings. **Verdict: Neutral** — earnings weakened in the latest quarter. A November 26 intraday quote was **not retrieved**.\n\n※ 3 figure(s) that could not be matched to this session's tool data were omitted. Observed OHLC range: WY.US: 19.39999962–21.14999962 USD (source: yahoo; currency conversion: none). For an entry price, ask me to derive one with a visible formula from an observed close or moving average.",
    "html": false
   }
  },
  "tradingagents": {
   "CBRE": {
-   "rating": "Hold",
-   "ratingText": "Hold",
+   "rating": "Underweight",
+   "ratingText": "Underweight",
    "date": "2026-11-26",
-   "generated": "2026-11-26 22:48:43",
-   "summary": "For CBRE, retain an existing position only if it fits portfolio concentration and loss limits; trim any excess promptly, and remain uninvested if no position is held. After refreshing prices and reviewing portfolio risk, consider adding at most 0.25 times a standard allocation only on sustained closes above the referenced…",
-   "report": "CBRE_20261126_224843",
+   "generated": "2026-11-26 23:12:52",
+   "summary": "For CBRE, favor a modest, conditional reduction rather than an exit: after verifying current prices and indicators, trim exposure above 75% of your standard CBRE allocation, or to a lower weight if your concentration and loss limits require it.",
+   "report": "CBRE_20261126_231252",
    "html": true
   },
   "WY": {
    "rating": "Underweight",
    "ratingText": "Underweight",
    "date": "2026-11-26",
-   "generated": "2026-11-26 22:51:00",
-   "summary": "For WY, trim only exposure above roughly 75% of the caller’s standard, risk-budgeted allocation; do not exit outright, initiate a short, or add solely on the supplied rebound.",
-   "report": "WY_20261126_225100",
+   "generated": "2026-11-26 23:15:09",
+   "summary": "For WY, favor a modest, conditional reduction rather than an exit: after verifying live prices and the dated November 25 indicators, trim only exposure above the lesser of 75% of your standard allocation and your portfolio risk limit; if already at or below that ceiling, no sale is required.",
+   "report": "WY_20261126_231509",
    "html": true
   }
  },

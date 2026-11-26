@@ -1,15 +1,25 @@
 'use strict';
 /* ================= Verdict: every analysis of the current Top 10 side by side ================= */
-const SUM = { agents: {}, loading: false, error: '' };
+const SUM = { agents: {}, loading: false, error: '', run: null, timer: null };
 const SUM_PROGRAMS = ['tradingagents', 'vibe'];
 async function sumLoadAgents() {
   if (SUM.loading) return;
   SUM.loading = true;
   const symbols = agentSymbols().join(',');
-  try { for (const program of SUM_PROGRAMS) SUM.agents[program] = (await runRequest('/api/agents?program=' + program + '&symbols=' + encodeURIComponent(symbols))).results || {}; SUM.error = ''; }
-  catch (e) { SUM.error = e.message; SUM.agents = SUM.agents || {}; }
+  try {
+    for (const program of SUM_PROGRAMS) { const d = await runRequest('/api/agents?program=' + program + '&symbols=' + encodeURIComponent(symbols)); SUM.agents[program] = d.results || {}; SUM.run = d.run || null; }
+    SUM.error = '';
+  } catch (e) { SUM.error = e.message; SUM.agents = SUM.agents || {}; }
   SUM.loading = false; SUM.loaded = true;
+  clearTimeout(SUM.timer);
+  if (SUM.run?.running) SUM.timer = setTimeout(() => { if (App.route() === 'summary') sumLoadAgents(); }, 15000);   // follow the run, show answers as they are saved
   if (App.route() === 'summary') App.render();
+}
+/* one button: every program for the whole Top 10, one after the other, each answer saved in the platform */
+async function sumRunAll(symbols) {
+  if (!confirm(tr('Run the AI agents for') + ' ' + symbols.join(', ') + ' (TradingAgents, Vibe-Trading)? ' + tr('This uses your own program and AI account, takes several minutes per stock, and runs one stock at a time.'))) return;
+  try { await runRequest('/api/agents/run', 'POST', { symbols, program: 'all' }); toast('AI agent run started'); } catch (e) { toast(e.message); }
+  SUM.loading = false; sumLoadAgents();
 }
 const SUM_VALUE_STEP = 0.15;   // a median estimate 15% above / below the price counts as cheap / expensive
 const sumChip = (vote, text, title) => h('span', { class: 'tech-verdict agent-' + (vote > 0 ? 'good' : vote < 0 ? 'bad' : 'mid'), title: title || '' }, text);
@@ -49,6 +59,12 @@ Views.summary = () => {
       h('td', null, h('div', { class: 'sym-cell' }, logoEl(stock.symbol, 22), h('div', null, h('b', { class: 'notr' }, stock.symbol), h('div', { class: 'muted small notr' }, stock.company)))),
       ...SUM_COLUMNS.map(([key]) => sumCell(signals[key])),
       h('td', null, sumChip(overall.vote, tr(overall.label)), h('small', { class: 'muted notr sum-count' }, '▲ ' + overall.up + ' · ▼ ' + overall.down + ' / ' + overall.n)))))));
-  return h('div', null, heading, card(null, null, table, null, 'c12'),
+  const run = SUM.run || {}, names = { tradingagents: 'TradingAgents', vibe: 'Vibe-Trading', all: 'TradingAgents + Vibe-Trading' };
+  const runBtn = btn(tr('Run all programs for the Top 10'), 'play', () => sumRunAll(top.map(r => r.symbol)), 'sm');
+  if (run.running) runBtn.disabled = true;
+  const status = run.running ? h('div', { class: 'banner' }, icon('sched', 18), h('b', null, tr('Running')), h('span', null, names[run.program] || ''), h('span', { class: 'notr' }, run.current || ''),
+    h('span', { class: 'muted' }, tr('Waiting') + ': ' + (run.queue || []).length + ' · ' + tr('Done') + ': ' + (run.done || []).length)) : null;
+  const bar = window.dashboardStatic ? null : h('div', { class: 'row' }, runBtn, h('span', { class: 'muted small' }, tr('Starts TradingAgents and Vibe-Trading on your PC for these stocks and saves every answer here.')));
+  return h('div', null, heading, status, bar ? card(null, null, bar, null, 'c12') : null, card(null, null, table, null, 'c12'),
     h('p', { class: 'muted small mt' }, tr('Votes: technical bullish / bearish; fundamentals strong / weak; fair value median 15% or more above / below the price (needs two estimates); program ratings Buy, Overweight, Bullish / Underweight, Sell, Bearish. Equal weights; the signals are not independent (the programs read the same market data) and thresholds are baseline choices. Not investment advice.')));
 };
