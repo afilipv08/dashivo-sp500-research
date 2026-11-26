@@ -251,6 +251,16 @@ skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 
 source requests in that build; the current snapshot is retained and the next refresh waits for its
 24-hour cache window.
 
+## Verdict
+
+The Verdict page (`web/summary.js`, first sub-page of Top 10 [filtered]) puts the analyses of the current Top 10 side by side so they
+bring value together: technical verdict, fundamentals verdict, fair-value median against the price (needs two estimates; ≥ +15% positive,
+≤ −15% negative), and the saved ratings of TradingAgents and Vibe-Trading. Each column votes +1/0/−1, the last column counts them
+(≥ net +2 leaning positive, ≤ net −2 leaning negative, otherwise mixed; fewer than two signals = not enough). Equal weights; the signals are
+not independent (the programs read the same market data), thresholds are baseline choices, and a missing signal is left out, not guessed.
+The Fair value page also shows the median of the positive estimates with its range and the gap to the price. Pages that depend on the
+market history or on the valuation snapshot re-render when those finish loading (a page opened first used to stay on "Loading…").
+
 ## Technical analysis
 
 The Technical analysis page (`web/technical.js`) is computed in the browser from the published daily closes

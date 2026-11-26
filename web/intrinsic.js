@@ -63,12 +63,29 @@ function ivLivePrice(stock) {
   if (num(live) && live > 0) return h('div', { class: 'iv-value' }, usd1(live), h('small', { class: 'iv-date' }, tr('Live')));
   return h('div', { class: 'iv-unavailable' }, usd1(stock.price), h('small', null, tr('Report price; live quote unavailable')));
 }
+/* every positive per-share estimate for a stock (SEC filings first, trailing-twelve-month values otherwise) and their median against the price */
+function ivEstimates(stock, sources) {
+  const live = LIVE.prices?.[stock.symbol], price = num(live) && live > 0 ? live : stock.price;
+  const sec = ivLookup(sources.sec?.rows, stock.symbol) || {}, ttm = ivLookup(sources.ttm?.rows, stock.symbol) || {};
+  const pick = (a, b) => (a?.value ? a : b);
+  const list = [['Equity Rank', ivLookup(sources.equityRank?.rows, stock.symbol)?.value], ['Zyberno', ivLookup(sources.zyberno?.rows, stock.symbol)?.value],
+    ['DCF', pick(sec.dcf, ttm.dcf)?.value], ['Graham', pick(sec.graham, ttm.graham)?.value], ['DDM', pick(sec.ddm, ttm.ddm)?.value]]
+    .filter(([, v]) => num(v) && v > 0).map(([source, value]) => ({ source, value })).sort((a, b) => a.value - b.value);
+  const n = list.length, mid = n % 2 ? list[(n - 1) / 2].value : n ? (list[n / 2 - 1].value + list[n / 2].value) / 2 : null;
+  return { price, list, n, median: mid, upside: mid != null && num(price) && price > 0 ? mid / price - 1 : null };
+}
+function ivMedianCell(est) {
+  if (est.n < 2) return h('td', null, ivUnavailable(tr('At least two estimates are needed.')));
+  const tip = est.list.map(x => x.source + ' ' + usd1(x.value)).join(' · ');
+  return h('td', null, h('div', { class: 'iv-value', title: tip }, usd1(est.median), h('small', { class: 'iv-delta ' + plClass(est.upside) }, signedPct(est.upside) + ' ' + tr('vs price')),
+    h('small', { class: 'iv-date' }, est.n + ' ' + tr('estimates') + ' · ' + usd1(est.list[0].value) + '–' + usd1(est.list.at(-1).value))));
+}
 function ivLoad() {
   if (INTRINSIC.loaded || INTRINSIC.loading) return;
   INTRINSIC.loading = true;
   runRequest('/api/intrinsic-values').then(data => { INTRINSIC.data = data; INTRINSIC.error = ''; })
     .catch(error => { INTRINSIC.error = error.message || tr('Intrinsic-value data is unavailable.'); })
-    .finally(() => { INTRINSIC.loading = false; INTRINSIC.loaded = true; if (App.route() === 'intrinsic') App.render(); });
+    .finally(() => { INTRINSIC.loading = false; INTRINSIC.loaded = true; if (['intrinsic', 'fundamental', 'summary'].includes(App.route())) App.render(); });
 }
 function ivMethodGuide() {
   const a = INTRINSIC.data?.assumptions || { dcf_growth: .05, terminal_growth: .025, discount_rate: .09, years: 5, graham_multiplier: 22.5, ddm_required_return: .09 };
@@ -98,7 +115,7 @@ Views.intrinsic = () => {
           : h('div', { class: 'iv-table-wrap' }, h('table', { class: 'iv-table' },
             h('thead', null,
               h('tr', { class: 'iv-groups' }, h('th', { rowspan: 2 }, tr('Stock')), h('th', { rowspan: 2 }, tr('Live price')),
-                h('th', { colspan: 3 }, tr('External estimates')), h('th', { colspan: 3 }, tr('Calculated methods'))),
+                h('th', { colspan: 3 }, tr('External estimates')), h('th', { colspan: 3 }, tr('Calculated methods')), h('th', { rowspan: 2 }, tr('Median'))),
               h('tr', null, h('th', null, ivLink('Equity Rank', 'https://www.equity-rank.com/', 'iv-head-link')),
                 h('th', null, ivLink('Fair Value Calculator', 'https://www.fairvalue-calculator.com/', 'iv-head-link')),
                 h('th', null, ivLink('Zyberno · approx.', 'https://zyberno.com/', 'iv-head-link')),
@@ -110,7 +127,8 @@ Views.intrinsic = () => {
                 h('td', null, ivLivePrice(stock)),
                 ivSourceCell(sources.equityRank, stock.symbol, 'equityRank'), ivFvcCell(stock.symbol, data.fvcEmbedUrl),
                 ivSourceCell(sources.zyberno, stock.symbol, 'zyberno'),
-                ivMethodCell(sec.dcf?.value ? sec.dcf : ttm.dcf || sec.dcf, methodsStatus), ivMethodCell(sec.graham?.value ? sec.graham : ttm.graham || sec.graham, methodsStatus), ivMethodCell(sec.ddm?.value ? sec.ddm : ttm.ddm || sec.ddm, methodsStatus));
+                ivMethodCell(sec.dcf?.value ? sec.dcf : ttm.dcf || sec.dcf, methodsStatus), ivMethodCell(sec.graham?.value ? sec.graham : ttm.graham || sec.graham, methodsStatus), ivMethodCell(sec.ddm?.value ? sec.ddm : ttm.ddm || sec.ddm, methodsStatus),
+                ivMedianCell(ivEstimates(stock, sources)));
             }))));
   return h('div', null,
     card('Fair value', 'Active filters and ranking determine these stocks. Estimates are not price targets or investment advice.',
