@@ -143,6 +143,14 @@ switches to its section, and the last section is remembered.
   the buy), `POST /api/portfolio/{buy,sell,deposit,capital,prices}`. Prices refresh automatically every
   5 minutes while the dashboard is open — by the user's choice there is no manual price button.
 - “Invest” is offered on the Filtered list and Full SP500 list rows only (not on Top 10 cards).
+- **Several named portfolios** (up to 20, names 1–40 characters, unique ignoring case): each is a separate account with its own
+  capital, cash, positions, closed positions and prices. `Portofoliu/portfolio.json` holds `{"portfolios": [...]}`; a file written
+  before this existed becomes the first one ("Main portfolio"), and the browser copy (GitHub Pages) migrates the same way. Every
+  portfolio call names its portfolio (`portfolio` in the body, `?id=` for reads; omitted = the first), the answer carries the short
+  list (`portfolios`), `create`/`rename`/`delete` are extra actions, and the last portfolio cannot be deleted. The chosen portfolio is
+  remembered on the device; the Invest dialog asks which portfolio to spend from and shows its cash. In the browser every `await`
+  runs before the store is read, because a price refresh in flight once overwrote a delete (read-modify-write across an await).
+  Backups export and import all portfolios (an older single-portfolio file is accepted).
 
 ## Explanations on hover
 

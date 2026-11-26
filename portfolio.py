@@ -56,29 +56,115 @@ def fetch_history(symbol, start):
     return [[index.strftime('%Y-%m-%d'), float(close)] for index, close in frame['Close'].items() if math.isfinite(close)]
 
 
-def empty():
-    return {'capital': DEFAULT_CAPITAL, 'deposits': [], 'positions': [], 'closed': [], 'prices': {}}
+MAX_PORTFOLIOS = 20
+MAX_NAME = 40
+DEFAULT_NAME = 'Main portfolio'
 
 
-def load(path=None):
+def empty(name=DEFAULT_NAME, capital=DEFAULT_CAPITAL, pid=None):
+    return {'id': pid or uuid.uuid4().hex[:8], 'name': name, 'capital': capital, 'deposits': [], 'positions': [], 'closed': [], 'prices': {}}
+
+
+def clean_name(name, others=()):
+    name = ' '.join(str(name or '').split())
+    if not name or len(name) > MAX_NAME:
+        raise ValueError(f'Give the portfolio a name of 1 to {MAX_NAME} characters.')
+    if name.casefold() in {str(o).casefold() for o in others}:
+        raise ValueError('A portfolio with this name already exists.')
+    return name
+
+
+def _read_store(path=None):
+    """{'portfolios': [account, ...]}; a file written before several portfolios existed becomes the first one."""
     path = Path(path or PATH)
-    with LOCK:
-        if not path.is_file():
-            return empty()
-        data = json.loads(path.read_text(encoding='utf-8'))
-        base = empty()
-        base.update({k: data[k] for k in base if k in data})
-        return base
+    if not path.is_file():
+        return {'portfolios': [empty(pid='main')]}
+    data = json.loads(path.read_text(encoding='utf-8'))
+    if isinstance(data.get('portfolios'), list) and data['portfolios']:
+        accounts = data['portfolios']
+    else:
+        accounts = [dict(data, id='main', name=DEFAULT_NAME)]
+    fixed = []
+    for account in accounts:
+        base = empty(account.get('name') or DEFAULT_NAME, pid=account.get('id') or None)
+        base.update({k: account[k] for k in base if k in account})
+        fixed.append(base)
+    return {'portfolios': fixed}
 
 
-def save(data, path=None):
+def _write_store(store, path=None):
     path = Path(path or PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, tmp = tempfile.mkstemp(dir=path.parent, suffix='.tmp')
+    with os.fdopen(handle, 'w', encoding='utf-8') as out:
+        json.dump(store, out, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def _find(store, pid):
+    if pid in (None, ''):
+        return store['portfolios'][0]
+    account = next((a for a in store['portfolios'] if a['id'] == pid), None)
+    if account is None:
+        raise ValueError('Portfolio not found.')
+    return account
+
+
+def load(path=None, pid=None):
+    """One account (the first when `pid` is omitted)."""
     with LOCK:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        handle, tmp = tempfile.mkstemp(dir=path.parent, suffix='.tmp')
-        with os.fdopen(handle, 'w', encoding='utf-8') as out:
-            json.dump(data, out, ensure_ascii=False, indent=1)
-        os.replace(tmp, path)
+        return _find(_read_store(path), pid)
+
+
+def save(data, path=None, pid=None):
+    with LOCK:
+        store = _read_store(path)
+        target = _find(store, pid or data.get('id'))
+        store['portfolios'][store['portfolios'].index(target)] = data
+        _write_store(store, path)
+
+
+def listing(path=None):
+    """Every portfolio in short: name and where it stands."""
+    out = []
+    for account in _read_store(path)['portfolios']:
+        view = summary(account)
+        out.append({'id': account['id'], 'name': account['name'], 'equity': view['equity'], 'cash': view['cash'], 'total': view['total'],
+                    'totalPct': view['totalPct'], 'positions': len(view['positions'])})
+    return out
+
+
+def create(name, capital=None, path=None):
+    with LOCK:
+        store = _read_store(path)
+        if len(store['portfolios']) >= MAX_PORTFOLIOS:
+            raise ValueError(f'At most {MAX_PORTFOLIOS} portfolios.')
+        account = empty(clean_name(name, [a['name'] for a in store['portfolios']]),
+                        positive(capital, 'starting capital') if capital not in (None, '') else DEFAULT_CAPITAL)
+        store['portfolios'].append(account)
+        _write_store(store, path)
+        return summary(account)
+
+
+def rename(pid, name, path=None):
+    with LOCK:
+        store = _read_store(path)
+        account = _find(store, pid)
+        account['name'] = clean_name(name, [a['name'] for a in store['portfolios'] if a is not account])
+        _write_store(store, path)
+        return summary(account)
+
+
+def remove(pid, path=None):
+    """Deletes a portfolio with its positions and history; the last one cannot be deleted. Returns the new first portfolio."""
+    with LOCK:
+        store = _read_store(path)
+        account = _find(store, pid)
+        if len(store['portfolios']) == 1:
+            raise ValueError('The last portfolio cannot be deleted.')
+        store['portfolios'].remove(account)
+        _write_store(store, path)
+        return summary(store['portfolios'][0])
 
 
 def cash(data):
@@ -101,7 +187,7 @@ def summary(data):
     available = cash(data)
     funded = data['capital'] + sum(d['amount'] for d in data['deposits'])
     stamps = [q.get('at') for q in data['prices'].values() if q.get('at')]
-    return {'capital': data['capital'], 'deposits': data['deposits'], 'funded': funded, 'cash': available,
+    return {'id': data.get('id'), 'name': data.get('name'), 'capital': data['capital'], 'deposits': data['deposits'], 'funded': funded, 'cash': available,
             'invested': invested, 'value': value, 'equity': available + value,
             'unrealized': value - invested, 'unrealizedPct': value / invested - 1 if invested else None,
             'realized': sum(c['pl'] for c in closed), 'total': available + value - funded,
@@ -120,13 +206,13 @@ def _quote(data, symbol, fallback, fallback_source):
     return price, source
 
 
-def buy(symbol, amount, analysis=None, report_price=None, path=None):
+def buy(symbol, amount, analysis=None, report_price=None, path=None, pid=None):
     symbol = str(symbol or '').strip().upper()
     if not symbol or len(symbol) > 12:
         raise ValueError('Invalid symbol.')
     amount = positive(amount, 'amount')
     with LOCK:
-        data = load(path)
+        data = load(path, pid)
         if amount > cash(data) + 1e-9:
             raise ValueError('Amount exceeds available cash.')
         fallback = None
@@ -140,13 +226,13 @@ def buy(symbol, amount, analysis=None, report_price=None, path=None):
                     'sector': str(snap.get('sector') or ''), 'opened': now(), 'amount': amount, 'price': price,
                     'shares': amount / price, 'source': source, 'analysis': snap}
         data['positions'].append(position)
-        save(data, path)
+        save(data, path, pid)
         return position, summary(data)
 
 
-def sell(position_id, path=None):
+def sell(position_id, path=None, pid=None):
     with LOCK:
-        data = load(path)
+        data = load(path, pid)
         position = next((p for p in data['positions'] if p['id'] == position_id), None)
         if position is None:
             raise ValueError('Position not found.')
@@ -154,45 +240,45 @@ def sell(position_id, path=None):
         price, source = _quote(data, position['symbol'], last, 'last')
         data['positions'].remove(position)
         data['closed'].append(dict(position, closed=now(), closePrice=price, closeSource=source, proceeds=position['shares'] * price))
-        save(data, path)
+        save(data, path, pid)
         return data['closed'][-1], summary(data)
 
 
-def deposit(amount, path=None):
+def deposit(amount, path=None, pid=None):
     amount = positive(amount, 'amount')
     with LOCK:
-        data = load(path)
+        data = load(path, pid)
         data['deposits'].append({'amount': amount, 'at': now()})
-        save(data, path)
+        save(data, path, pid)
         return summary(data)
 
 
-def set_capital(amount, path=None):
+def set_capital(amount, path=None, pid=None):
     amount = positive(amount, 'amount')
     with LOCK:
-        data = load(path)
+        data = load(path, pid)
         data['capital'] = amount
         if cash(data) < -1e-9:
             raise ValueError('Starting capital cannot be lower than the money already invested.')
-        save(data, path)
+        save(data, path, pid)
         return summary(data)
 
 
-def refresh_prices(path=None):
+def refresh_prices(path=None, pid=None):
     """Fetch the live price of every open position (in parallel); keeps the last price on failure."""
-    symbols = sorted({p['symbol'] for p in load(path)['positions']})
+    symbols = sorted({p['symbol'] for p in load(path, pid)['positions']})
     results = {}
     if symbols:
         with ThreadPoolExecutor(min(4, len(symbols))) as pool:
             for symbol, result in zip(symbols, pool.map(lambda s: _safe(fetch_price, s), symbols)):
                 results[symbol] = result
     with LOCK:
-        data = load(path)
+        data = load(path, pid)
         stamp = now()
         for symbol, price in results.items():
             if price is not None:
                 data['prices'][symbol] = {'price': price, 'at': stamp, 'source': 'live'}
-        save(data, path)
+        save(data, path, pid)
         view = summary(data)
         view['priceErrors'] = sorted(s for s, p in results.items() if p is None)
         return view
@@ -206,8 +292,8 @@ def _safe(fn, *args):
 
 
 def history(position_id, path=None):
-    data = load(path)
-    position = next((p for p in data['positions'] + data['closed'] if p['id'] == position_id), None)
+    accounts = _read_store(path)['portfolios']
+    position = next((p for a in accounts for p in a['positions'] + a['closed'] if p['id'] == position_id), None)
     if position is None:
         raise ValueError('Position not found.')
     points = fetch_history(position['symbol'], position['opened'][:10])

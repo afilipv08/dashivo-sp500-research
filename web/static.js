@@ -12,10 +12,28 @@ async function siteFile(name, fresh = true) {
 }
 async function siteMeta() { if (!SITE.meta) { try { SITE.meta = await siteFile('meta.json', false); } catch (e) { SITE.meta = {}; } } return SITE.meta; }
 
-/* ---------- demo portfolio in localStorage (same rules as portfolio.py) ---------- */
-const pfEmpty = () => ({ capital: 10000, deposits: [], positions: [], closed: [], prices: {} });
-function pfLoad() { const d = store.get(SITE_PF_KEY, null); return d && typeof d === 'object' ? Object.assign(pfEmpty(), d) : pfEmpty(); }
-const pfSave = d => store.set(SITE_PF_KEY, d);
+/* ---------- demo portfolios in localStorage (same rules as portfolio.py); several, each with a name the user chose ---------- */
+const PF_MAX = 20, PF_MAX_NAME = 40;
+const pfEmpty = (name = 'Main portfolio', capital = 10000, id) => ({ id: id || Math.random().toString(36).slice(2, 10), name, capital, deposits: [], positions: [], closed: [], prices: {} });
+/* a device that saved one portfolio before several existed keeps it as the first one */
+function pfStore() {
+  const raw = store.get(SITE_PF_KEY, null);
+  const list = raw && Array.isArray(raw.portfolios) && raw.portfolios.length ? raw.portfolios
+    : raw && typeof raw === 'object' && Array.isArray(raw.positions) ? [{ ...raw, id: 'main', name: 'Main portfolio' }] : [pfEmpty(undefined, undefined, 'main')];
+  return { portfolios: list.map(a => Object.assign(pfEmpty(a.name, 10000, a.id), a)) };
+}
+const pfStoreSave = st => store.set(SITE_PF_KEY, st);
+function pfFind(st, id) {
+  if (!id) return st.portfolios[0];
+  const a = st.portfolios.find(x => x.id === id); if (!a) throw Error('Portfolio not found.');
+  return a;
+}
+function pfCleanName(name, others) {
+  name = String(name || '').trim().split(/\s+/).join(' ');
+  if (!name || name.length > PF_MAX_NAME) throw Error('Give the portfolio a name of 1 to ' + PF_MAX_NAME + ' characters.');
+  if (others.some(o => String(o).toLowerCase() === name.toLowerCase())) throw Error('A portfolio with this name already exists.');
+  return name;
+}
 const pfCash = d => d.capital + d.deposits.reduce((a, x) => a + x.amount, 0) - d.positions.reduce((a, p) => a + p.amount, 0) - d.closed.reduce((a, c) => a + c.amount, 0) + d.closed.reduce((a, c) => a + c.proceeds, 0);
 function pfSummary(d) {
   const positions = d.positions.map(p => { const q = d.prices[p.symbol] || {}, cur = q.price || p.price, value = p.shares * cur;
@@ -23,57 +41,80 @@ function pfSummary(d) {
   const closed = d.closed.map(c => ({ ...c, pl: c.proceeds - c.amount, plPct: c.proceeds / c.amount - 1 }));
   const invested = positions.reduce((a, p) => a + p.amount, 0), value = positions.reduce((a, p) => a + p.value, 0), cash = pfCash(d);
   const funded = d.capital + d.deposits.reduce((a, x) => a + x.amount, 0), stamps = Object.values(d.prices).map(q => q.at).filter(Boolean).sort();
-  return { capital: d.capital, deposits: d.deposits, funded, cash, invested, value, equity: cash + value, unrealized: value - invested, unrealizedPct: invested ? value / invested - 1 : null,
+  return { id: d.id, name: d.name, capital: d.capital, deposits: d.deposits, funded, cash, invested, value, equity: cash + value, unrealized: value - invested, unrealizedPct: invested ? value / invested - 1 : null,
     realized: closed.reduce((a, c) => a + c.pl, 0), total: cash + value - funded, totalPct: funded ? (cash + value) / funded - 1 : null, positions, closed, pricesAt: stamps[stamps.length - 1] || null };
 }
+const pfListing = st => st.portfolios.map(d => { const v = pfSummary(d); return { id: d.id, name: d.name, equity: v.equity, cash: v.cash, total: v.total, totalPct: v.totalPct, positions: v.positions.length }; });
 const positiveNum = (v, what) => { const n = Number(v); if (!Number.isFinite(n) || n <= 0) throw Error('Invalid ' + what + '.'); return n; };
 async function liveQuote(symbol) {
   try { const l = await siteFile('live_prices.json'); const p = l.prices?.[symbol]; if (num(p) && p > 0) return { price: p, at: l.at, source: 'live' }; } catch (e) { }
   return null;
 }
+/* every await (live quote, price file) happens BEFORE the store is read, so two actions in flight cannot overwrite each other */
 async function pfAction(action, body) {
-  const d = pfLoad(), now = new Date().toISOString();
+  const now = new Date().toISOString(), pid = typeof body.portfolio === 'string' ? body.portfolio : null;
+  let quote = null, files = null;
+  if (action === 'buy') quote = await liveQuote(String(body.symbol || '').trim().toUpperCase());
+  else if (action === 'sell') { const p = pfFind(pfStore(), pid).positions.find(x => x.id === body.id); quote = p ? await liveQuote(p.symbol) : null; }
+  else if (action === 'prices') files = await siteFile('live_prices.json');
+  const st = pfStore();
+  const reply = (d, extra) => ({ ...extra, portfolio: pfSummary(d), portfolios: pfListing(st) });
+  if (action === 'create') {
+    if (st.portfolios.length >= PF_MAX) throw Error('At most ' + PF_MAX + ' portfolios.');
+    const d = pfEmpty(pfCleanName(body.name, st.portfolios.map(x => x.name)), body.capital == null || body.capital === '' ? 10000 : positiveNum(body.capital, 'starting capital'));
+    st.portfolios.push(d); pfStoreSave(st); return reply(d);
+  }
+  if (action === 'rename') { const d = pfFind(st, pid); d.name = pfCleanName(body.name, st.portfolios.filter(x => x !== d).map(x => x.name)); pfStoreSave(st); return reply(d); }
+  if (action === 'delete') {
+    const d = pfFind(st, pid); if (st.portfolios.length === 1) throw Error('The last portfolio cannot be deleted.');
+    st.portfolios = st.portfolios.filter(x => x !== d); pfStoreSave(st); return reply(st.portfolios[0]);
+  }
+  const d = pfFind(st, pid);
   if (action === 'buy') {
     const symbol = String(body.symbol || '').trim().toUpperCase(); if (!symbol) throw Error('Invalid symbol.');
     const amount = positiveNum(body.amount, 'amount');
     if (amount > pfCash(d) + 1e-9) throw Error('Amount exceeds available cash.');
-    const q = await liveQuote(symbol) || (num(body.reportPrice) && body.reportPrice > 0 ? { price: body.reportPrice, at: now, source: 'report' } : null);
+    const q = quote || (num(body.reportPrice) && body.reportPrice > 0 ? { price: body.reportPrice, at: now, source: 'report' } : null);
     if (!q) throw Error('No price available for ' + symbol + '.');
     const a = body.analysis || {};
     const position = { id: Math.random().toString(36).slice(2, 12), symbol, company: a.company || symbol, sector: a.sector || '', opened: now, amount, price: q.price, shares: amount / q.price, source: q.source, analysis: a };
-    d.positions.push(position); d.prices[symbol] = { price: q.price, at: q.at, source: q.source }; pfSave(d);
-    return { position, portfolio: pfSummary(d) };
+    d.positions.push(position); d.prices[symbol] = { price: q.price, at: q.at, source: q.source }; pfStoreSave(st);
+    return reply(d, { position });
   }
   if (action === 'sell') {
     const p = d.positions.find(x => x.id === body.id); if (!p) throw Error('Position not found.');
-    const q = await liveQuote(p.symbol) || { price: d.prices[p.symbol]?.price || p.price, at: now, source: 'last' };
+    const q = quote || { price: d.prices[p.symbol]?.price || p.price, at: now, source: 'last' };
     d.positions = d.positions.filter(x => x !== p);
     const closed = { ...p, closed: now, closePrice: q.price, closeSource: q.source, proceeds: p.shares * q.price };
-    d.closed.push(closed); d.prices[p.symbol] = { price: q.price, at: q.at, source: q.source }; pfSave(d);
-    return { closed, portfolio: pfSummary(d) };
+    d.closed.push(closed); d.prices[p.symbol] = { price: q.price, at: q.at, source: q.source }; pfStoreSave(st);
+    return reply(d, { closed });
   }
-  if (action === 'deposit') { d.deposits.push({ amount: positiveNum(body.amount, 'amount'), at: now }); pfSave(d); return { portfolio: pfSummary(d) }; }
+  if (action === 'deposit') { d.deposits.push({ amount: positiveNum(body.amount, 'amount'), at: now }); pfStoreSave(st); return reply(d); }
   if (action === 'capital') {
     const old = d.capital; d.capital = positiveNum(body.amount, 'amount');
     if (pfCash(d) < -1e-9) { d.capital = old; throw Error('Starting capital cannot be lower than the money already invested.'); }
-    pfSave(d); return { portfolio: pfSummary(d) };
+    pfStoreSave(st); return reply(d);
   }
   if (action === 'prices') {
-    const l = await siteFile('live_prices.json');
-    for (const p of d.positions) if (num(l.prices?.[p.symbol])) d.prices[p.symbol] = { price: l.prices[p.symbol], at: l.at, source: 'live' };
-    pfSave(d); return { portfolio: pfSummary(d) };
+    for (const p of d.positions) if (num(files.prices?.[p.symbol])) d.prices[p.symbol] = { price: files.prices[p.symbol], at: files.at, source: 'live' };
+    pfStoreSave(st); return reply(d);
   }
   throw Error('Ruta necunoscuta');
 }
 function pfExport() {
-  const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(pfLoad(), null, 1)], { type: 'application/json' })), download: fileName('Portfolio', 'json') });
+  const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(pfStore(), null, 1)], { type: 'application/json' })), download: fileName('Portfolios', 'json') });
   document.body.append(a); a.click(); a.remove(); toast('Backup exported');
 }
 function pfImport() {
   const f = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' } });
   f.addEventListener('change', () => { const file = f.files[0]; f.remove(); if (!file) return;
-    file.text().then(t => { try { const d = JSON.parse(t); if (!d || !Array.isArray(d.positions) || !Array.isArray(d.closed) || !num(d.capital)) throw 0;
-      if (!ask('Replace the portfolio on this device with the backup file?')) return; pfSave(Object.assign(pfEmpty(), d)); PORT.data = pfSummary(pfLoad()); App.render(); toast('Backup imported'); }
+    file.text().then(t => { try {
+      const d = JSON.parse(t), valid = a => a && Array.isArray(a.positions) && Array.isArray(a.closed) && num(a.capital);
+      const list = Array.isArray(d?.portfolios) ? d.portfolios : [d];
+      if (!list.length || !list.every(valid)) throw 0;
+      if (!ask('Replace the portfolios on this device with the backup file?')) return;
+      pfStoreSave({ portfolios: list.map((a, i) => ({ ...pfEmpty(a.name || 'Portfolio ' + (i + 1), 10000, a.id || (i ? undefined : 'main')), ...a })) });
+      PORT.data = null; PORT.active = null; App.render(); toast('Backup imported'); }
     catch (e) { toast('That file is not a valid portfolio backup'); } }); });
   document.body.append(f); f.click();
 }
@@ -92,9 +133,9 @@ async function staticApi(path, method, body) {
   if (route === '/api/market-history') return siteFile('history.json', false);
   if (route === '/api/intrinsic-values') return siteFile('intrinsic_values.json', false);
   if (route === '/api/agents') return { available: false, results: {}, run: {} };   // runs only on the PC with the user's own install
-  if (route === '/api/portfolio') return pfSummary(pfLoad());
+  if (route === '/api/portfolio') { const st = pfStore(); return { ...pfSummary(pfFind(st, new URLSearchParams(query).get('id'))), portfolios: pfListing(st) }; }
   if (route === '/api/portfolio/history') {
-    const id = new URLSearchParams(query).get('id'), d = pfLoad(), p = [...d.positions, ...d.closed].find(x => x.id === id);
+    const id = new URLSearchParams(query).get('id'), p = pfStore().portfolios.flatMap(d => [...d.positions, ...d.closed]).find(x => x.id === id);
     if (!p) throw Error('Position not found.');
     const all = await siteFile('history.json', false).catch(() => ({}));
     const closes = all.series?.[p.symbol] || [];   // aligned on all.dates to keep the file small
@@ -123,7 +164,7 @@ if (window.dashboardStatic) {
   Views.research = () => { const node = baseResearch(); node.firstChild.replaceWith(siteResearchCard()); return node; };
   const basePortfolio = Views.portfolio;
   Views.portfolio = () => {
-    if (!PORT.data) PORT.data = pfSummary(pfLoad());
+    if (!PORT.data) { const st = pfStore(); PORT.data = { ...pfSummary(pfFind(st, PORT.active && st.portfolios.some(x => x.id === PORT.active) ? PORT.active : null)), portfolios: pfListing(st) }; }
     const node = basePortfolio(), actions = node.querySelector('.card-h .row');
     if (actions) add(actions, [btn('Export backup', 'dl', pfExport, 'sm'), btn('Import backup', 'upload', pfImport, 'sm')]);
     node.prepend(h('div', { class: 'banner' }, icon('wallet', 16), h('span', null, 'The demo portfolio is saved on this device only. Use Export backup to keep a copy or to move it to another phone.')));

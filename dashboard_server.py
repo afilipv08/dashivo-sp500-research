@@ -307,22 +307,32 @@ def make_server(port=8765, lan=False):
             return data if isinstance(data, dict) else {}
 
         def portfolio_post(self, action, body):
-            """Demo portfolio operations; ValueError/PriceError messages are English UI text."""
+            """Demo portfolio operations on the portfolio named by body['portfolio']; ValueError/PriceError messages are English UI text."""
+            pid = body.get('portfolio') if isinstance(body.get('portfolio'), str) else None
             try:
                 if action == 'buy':
-                    position, view = portfolio.buy(body.get('symbol'), body.get('amount'), body.get('analysis'), body.get('reportPrice'))
-                    self.reply(200, {'position': position, 'portfolio': view})
+                    position, view = portfolio.buy(body.get('symbol'), body.get('amount'), body.get('analysis'), body.get('reportPrice'), pid=pid)
+                    out = {'position': position, 'portfolio': view}
                 elif action == 'sell':
-                    closed, view = portfolio.sell(str(body.get('id', '')))
-                    self.reply(200, {'closed': closed, 'portfolio': view})
+                    closed, view = portfolio.sell(str(body.get('id', '')), pid=pid)
+                    out = {'closed': closed, 'portfolio': view}
                 elif action == 'deposit':
-                    self.reply(200, {'portfolio': portfolio.deposit(body.get('amount'))})
+                    out = {'portfolio': portfolio.deposit(body.get('amount'), pid=pid)}
                 elif action == 'capital':
-                    self.reply(200, {'portfolio': portfolio.set_capital(body.get('amount'))})
+                    out = {'portfolio': portfolio.set_capital(body.get('amount'), pid=pid)}
                 elif action == 'prices':
-                    self.reply(200, {'portfolio': portfolio.refresh_prices()})
+                    out = {'portfolio': portfolio.refresh_prices(pid=pid)}
+                elif action == 'create':
+                    out = {'portfolio': portfolio.create(body.get('name'), body.get('capital'))}
+                elif action == 'rename':
+                    out = {'portfolio': portfolio.rename(pid, body.get('name'))}
+                elif action == 'delete':
+                    out = {'portfolio': portfolio.remove(pid)}
                 else:
                     self.reply(404, {'error': 'Ruta necunoscuta'})
+                    return
+                out['portfolios'] = portfolio.listing()
+                self.reply(200, out)
             except (ValueError, portfolio.PriceError) as exc:
                 self.reply(400, {'error': str(exc)})
 
@@ -421,8 +431,13 @@ def make_server(port=8765, lan=False):
                 self.reply(200 if data else 404, data or {'error': 'No crypto data yet.'})
             elif self.path == '/api/live-prices':
                 self.reply(200, live_prices.cached())
-            elif self.path == '/api/portfolio':
-                self.reply(200, portfolio.summary(portfolio.load()))
+            elif self.path == '/api/portfolio' or self.path.startswith('/api/portfolio?'):
+                from urllib.parse import parse_qs, urlsplit
+                try:
+                    pid = parse_qs(urlsplit(self.path).query).get('id', [''])[0] or None
+                    self.reply(200, {**portfolio.summary(portfolio.load(pid=pid)), 'portfolios': portfolio.listing()})
+                except ValueError as exc:
+                    self.reply(400, {'error': str(exc)})
             elif self.path.startswith('/api/portfolio/history?'):
                 from urllib.parse import parse_qs, urlsplit
                 try:
