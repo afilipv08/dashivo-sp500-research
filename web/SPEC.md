@@ -276,6 +276,17 @@ owner's AI account and minutes, and the results are model output. The bridge nev
 - The online (GitHub Pages) version shows an explanation instead; no results are published. Ratings and summaries are
   not investment advice and are not forecasts.
 
+## Sources and analyses
+
+The Sources and analyses page (`web/sources.js`) is the contents page asked for: each platform with its status (in use, link
+only, candidate, installed on this PC), its free access and limits, and what it is useful for, plus the question each analysis
+page answers and the rules for adding a source (free tier first, check terms before showing data on the public site, keys only
+in Actions secrets or on the PC, missing data never estimated). Limits were read from the providers' own pages on 25–26.11.2026
+(Alpha Vantage 25 requests/day and 5/minute, Finnhub 60 calls/minute, Financial Modeling Prep 250 calls/day with a licence needed
+to display or redistribute, OpenBB v5 under Apache-2.0, FRED free and optional per the TradingAgents README); they can change
+and are indicative. Vibe-Trading and freqtrade were only found on the owner's PC and are not evaluated. Stooq and FinanceToolkit
+were not verified and are left out.
+
 ## eToro links
 
 The eToro page uses the active filters and ranking to show official asset-page links for the current
