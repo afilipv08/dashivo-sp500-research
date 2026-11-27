@@ -53,7 +53,7 @@ async function loadSimulations() {
     if (!m.series?.['^GSPC']?.some(v => num(v) && v > 0)) throw Error('S&P 500 daily closes are not available yet.');
   } catch (e) { SIM_VIEW.error = e.message || 'Simulation history is unavailable.'; }
   SIM_VIEW.loading = false;
-  if (['simulations', 'calendar', 'technical', 'summary', 'sectors'].includes(App.route())) App.render();   // every page that reads the market history
+  if (['simulations', 'calendar'].includes(App.route())) App.render();   // every page that reads the market history
 }
 const simDayLabel = day => new Date(day + 'T12:00:00').toLocaleDateString(I18N.locale, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 const simCash = v => num(v) ? '$' + nf(v, 0) : '—';

@@ -69,6 +69,30 @@ def intrinsic_values():
         return data
 
 
+TECHNICAL_CACHE = {'data': None, 'fetched': 0.0}
+TECHNICAL_LOCK = threading.Lock()
+
+
+def technical_data():
+    """The technical analysis the site build computes (local site/ copy first, else the published one)."""
+    with TECHNICAL_LOCK:
+        if TECHNICAL_CACHE['data'] and time.monotonic() - TECHNICAL_CACHE['fetched'] < 1800:
+            return TECHNICAL_CACHE['data']
+        data = None
+        try:
+            candidate = json.loads((BASE / 'site' / 'data' / 'technical.json').read_text(encoding='utf-8'))
+            if isinstance(candidate.get('stocks'), dict):
+                data = candidate
+        except (OSError, ValueError):
+            pass
+        if data is None:
+            url = 'https://afilipv08.github.io/dashivo-sp500-research/data/technical.json?t=' + str(int(time.time()))
+            with urllib.request.urlopen(url, timeout=30) as response:
+                data = json.loads(response.read())
+        TECHNICAL_CACHE.update(data=data, fetched=time.monotonic())
+        return data
+
+
 PHASES = ('list', 'quotes', 'export', 'load')
 
 
@@ -410,6 +434,11 @@ def make_server(port=8765, lan=False):
                     self.reply(200, market_history())
                 except Exception:
                     self.reply(503, {'error': 'Daily market history (including the S&P 500 benchmark) is unavailable right now.'})
+            elif self.path == '/api/technical':
+                try:
+                    self.reply(200, technical_data())
+                except Exception:
+                    self.reply(503, {'error': 'Technical analysis data is unavailable right now.'})
             elif self.path == '/api/intrinsic-values':
                 try:
                     self.reply(200, intrinsic_values())

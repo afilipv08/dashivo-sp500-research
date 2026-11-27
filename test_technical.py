@@ -79,8 +79,15 @@ class TechnicalTests(unittest.TestCase):
         self.assertEqual((row['days'], row['hitRate']), (10, 1.0))
         expected = (close.shift(-5) / close - 1).dropna().iloc[-10:].mean()
         self.assertAlmostEqual(row['avgReturn'], round(expected, 4))
-        agg = technical.aggregate_track([tr, tr])
-        self.assertEqual(agg['byCategory']['Strong Buy']['days'], 20)
+        idx2 = pd.bdate_range('2024-01-01', periods=120)
+        close2 = pd.Series(np.linspace(100, 160, 120), index=idx2)
+        pool = technical.pool_rows(pd.Series(0.8, index=idx2), pd.Series(-0.8, index=idx2), close2, pd.Series(100.0, index=idx2), days=30)
+        self.assertEqual(len(pool), 30)
+        agg = technical.aggregate_track([pool, pool])
+        self.assertEqual(agg['stocks'], 2)
+        self.assertEqual(agg['ratings']['composite']['20']['Strong Buy']['days'], 60)
+        self.assertEqual(agg['ratings']['tv']['20']['Strong Sell']['hitRate'], 1.0)
+        self.assertEqual(sorted(agg['ratings']['composite']), ['20', '5', '60'])
 
     def test_build_uses_the_downloaded_frame_and_skips_missing_symbols(self):
         rng = np.random.default_rng(2)
@@ -94,6 +101,7 @@ class TechnicalTests(unittest.TestCase):
         self.assertEqual(sorted(out['stocks']), ['AAA', 'BRK.B'])
         self.assertNotIn('_rows', str(out['stocks']['AAA']['track']))
         self.assertEqual(out['track']['stocks'], 2)
+        self.assertNotIn('_pool', out['stocks']['AAA'])
 
 
 if __name__ == '__main__':

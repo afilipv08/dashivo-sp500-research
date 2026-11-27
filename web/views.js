@@ -93,17 +93,17 @@ const SECTOR_COMPANY_COLS = [['symbol', 'Company'], ['price', 'Price'], ['live',
 function sectorCompanyValue(r, key) { return key === 'live' ? sectorLive(r) : key === 'consensus' ? consensusOf(r) : key === 'symbol' ? r.symbol : r[key]; }
 /* the verdicts the dashboard already computes for any stock; each one stays out until its data has loaded */
 function companyVerdicts(r) {
-  loadSimulations(); if (!INTRINSIC.loaded) ivLoad();
+  if (!INTRINSIC.loaded) ivLoad();
   const chip = (label, vote, text, title) => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'tech-verdict agent-' + (vote > 0 ? 'good' : vote < 0 ? 'bad' : 'mid'), title: title || '' }, text));
   const wait = label => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'muted small' }, tr('Loading…')));
   const none = label => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'muted small' }, tr('Unavailable')));
-  const t = SIM_VIEW.market ? techAnalyse(techSeries(SIM_VIEW.market, r.symbol)) : undefined;
+  techLoad();
+  const t = TECH.data ? techVerdict(r.symbol) : TECH.error ? null : undefined;
   const sources = INTRINSIC.data?.sources || {};
   const f = INTRINSIC.loaded ? fundAnalyse(r, ivLookup(sources.zyberno?.rows, r.symbol), ivLookup(sources.equityRank?.rows, r.symbol)) : undefined;
   const est = INTRINSIC.loaded ? ivEstimates(r, sources) : undefined;
   return h('div', { class: 'cv-grid' },
-    t === undefined ? wait('Technical') : !t || t.verdict === 'unknown' ? none('Technical')
-      : chip('Technical', t.verdict === 'bullish' ? 1 : t.verdict === 'bearish' ? -1 : 0, tr(TECH_LABELS[t.verdict]) + (t.rsi != null ? ' · RSI ' + nf(t.rsi, 0) : ''), tr(techConclusion(t))),
+    t === undefined ? wait('Technical analysis') : !t ? none('Technical analysis') : chip('Technical analysis', t.vote, t.text, t.title),
     f === undefined ? wait('Fundamentals') : !f || f.verdict === 'unknown' ? none('Fundamentals')
       : chip('Fundamentals', f.verdict === 'strong' ? 1 : f.verdict === 'weak' ? -1 : 0, tr(FUND_LABELS[f.verdict]) + (f.pe ? ' · P/E ' + nf(f.pe, 1) : f.loss ? ' · ' + tr('Loss') : ''), tr(fundConclusion(f))),
     est === undefined ? wait('Fair value') : est.n < 2 ? none('Fair value')

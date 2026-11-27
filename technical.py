@@ -12,10 +12,11 @@ import numpy as np
 import pandas as pd
 
 MA_LENGTHS = (10, 20, 30, 50, 100, 200)
-FORWARD_DAYS = 20          # horizon for the track record (about one trading month)
+FORWARD_DAYS = 20          # horizon of the per-stock track record (about one trading month)
+HORIZONS = (5, 20, 60)     # horizons of the universe-wide track record (a week, a month, a quarter)
 TRACK_DAYS = 252           # how many recent days of the daily rating are scored
 CATEGORIES = ('Strong Sell', 'Sell', 'Neutral', 'Buy', 'Strong Buy')
-SCHEMA = 1
+SCHEMA = 2
 
 
 def category(value):
@@ -315,6 +316,7 @@ def analyse(df, bench):
     out['rating']['category'] = category(out['rating']['composite'])
     out['rating']['tvCategory'] = category(out['rating']['tv'])
     out['track'] = track_record(composite, c, b)
+    out['_pool'] = pool_rows(composite, tv_all, c, b)
     return out
 
 
@@ -333,19 +335,43 @@ def track_record(composite, close, bench, days=TRACK_DAYS, horizon=FORWARD_DAYS)
             '_rows': frame[['category', 'fwd', 'excess']]}
 
 
-def aggregate_track(tracks):
-    """Pool every stock's scored days per category: the universe-wide track record of the composite rating."""
-    rows = [t['_rows'] for t in tracks if t and '_rows' in t]
-    if not rows:
+def pool_rows(composite, tv, close, bench, days=TRACK_DAYS):
+    """The last `days` scored days of one stock with both ratings and forward returns at every horizon (for the universe-wide record)."""
+    data = {'composite': composite.map(category), 'tv': tv.map(category)}
+    for h in HORIZONS:
+        fwd = close.shift(-h) / close - 1
+        data[f'fwd{h}'] = fwd
+        data[f'exc{h}'] = fwd - (bench.shift(-h) / bench - 1)
+    frame = pd.DataFrame(data)
+    frame = frame[frame['composite'].notna()]
+    # keep the days where the longest horizon is known, so every horizon is scored on the same days
+    return frame.dropna(subset=[f'fwd{max(HORIZONS)}']).iloc[-days:]
+
+
+def aggregate_track(pools):
+    """Pool every stock's scored days: for each rating (composite and TradingView's) and horizon, per category,
+    the average forward return, the excess over the S&P 500 and how often the stock rose / beat the index.
+    Days overlap (a 20-day window starts every day), so the counts overstate the number of independent observations."""
+    pools = [p for p in pools if p is not None and len(p)]
+    if not pools:
         return None
-    frame = pd.concat(rows)
-    out = {}
-    for name in CATEGORIES:
-        part = frame[frame['category'] == name]
-        if len(part):
-            out[name] = {'days': int(len(part)), 'avgReturn': _f(part['fwd'].mean()), 'avgExcess': _f(part['excess'].mean()),
-                         'hitRate': _f((part['fwd'] > 0).mean()), 'beatRate': _f((part['excess'] > 0).mean())}
-    return {'horizon': FORWARD_DAYS, 'stocks': len(rows), 'byCategory': out}
+    frame = pd.concat(pools)
+    out = {'horizons': list(HORIZONS), 'stocks': len(pools), 'from': frame.index.min().strftime('%Y-%m-%d'), 'to': frame.index.max().strftime('%Y-%m-%d'), 'ratings': {}}
+    for rating in ('composite', 'tv'):
+        by_h = {}
+        for h in HORIZONS:
+            rows = {}
+            for name in CATEGORIES:
+                part = frame[frame[rating] == name]
+                if len(part):
+                    rows[name] = {'days': int(len(part)), 'avgReturn': _f(part[f'fwd{h}'].mean()), 'avgExcess': _f(part[f'exc{h}'].mean()),
+                                  'hitRate': _f((part[f'fwd{h}'] > 0).mean()), 'beatRate': _f((part[f'exc{h}'] > 0).mean())}
+            # spread: Strong Buy minus Strong Sell average excess; positive = the rating pointed the right way
+            if 'Strong Buy' in rows and 'Strong Sell' in rows:
+                rows['_spread'] = _f(rows['Strong Buy']['avgExcess'] - rows['Strong Sell']['avgExcess'])
+            by_h[str(h)] = rows
+        out['ratings'][rating] = by_h
+    return out
 
 
 def build(symbols, period='3y', download=None):
@@ -366,7 +392,7 @@ def build(symbols, period='3y', download=None):
     if bench_df is None or bench_df['Close'].dropna().empty:
         raise RuntimeError('S&P 500 history is unavailable.')
     bench = bench_df['Close'].dropna()
-    stocks, tracks = {}, []
+    stocks, pools = {}, []
     for symbol in symbols:
         df = frame(symbol)
         if df is None:
@@ -377,9 +403,9 @@ def build(symbols, period='3y', download=None):
             print('technical', symbol, exc)
             continue
         if result:
-            tracks.append(result['track'])
+            pools.append(result.pop('_pool', None))
             if result['track']:
                 result['track'] = {k: v for k, v in result['track'].items() if k != '_rows'}
             stocks[symbol] = result
     return {'schema': SCHEMA, 'at': datetime.now().astimezone().isoformat(timespec='seconds'), 'source': 'Yahoo Finance daily OHLCV (yfinance), adjusted',
-            'method': 'TradingView Technical Ratings rules + volume and relative-strength groups', 'stocks': stocks, 'track': aggregate_track(tracks)}
+            'method': 'TradingView Technical Ratings rules + volume and relative-strength groups', 'stocks': stocks, 'track': aggregate_track(pools)}

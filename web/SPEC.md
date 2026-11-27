@@ -270,13 +270,25 @@ market history or on the valuation snapshot re-render when those finish loading 
 
 ## Technical analysis
 
-The Technical analysis page (`web/technical.js`) is computed in the browser from the published daily closes
-(`market-history`) for the current Top 10 of the active filters; no new data source and nothing is estimated. Six rules
-vote +1/0/−1: price vs SMA50, price vs SMA200, SMA50 vs SMA200, RSI14 (Wilder; <30 up, >70 down), MACD 12/26/9
-histogram and 3-month momentum. The verdict is the sum of the available votes (≥ +3 bullish, ≤ −3 bearish, otherwise mixed;
-fewer than four available rules = not enough data), with a one-line summary and a hover breakdown. Only closing prices
-are used (no volume, highs or lows), and results are descriptive, not forecasts; the SMA200 rule needs 200 closes.
-The thresholds are baseline choices, unconfirmed by the user.
+The Technical analysis page (`web/technical.js`) shows the current Top 10 (and any other stock picked) from `data/technical.json`, which
+`technical.py` computes at build time from three years of adjusted daily OHLCV (Yahoo Finance) for every stock and the S&P 500; it is
+recomputed at most twice a day and served locally by `/api/technical`. The browser does no indicator maths.
+- **33 votes in four groups**, each -1/0/+1: 15 moving-average and 11 oscillator conditions exactly as TradingView's published
+  Technical Ratings rules (SMA/EMA 10–200, VWMA 20, Hull 9, Ichimoku; RSI, Stochastic, CCI, ADX, Awesome, Momentum, MACD, Stoch RSI,
+  Williams %R, Bull Bear Power, Ultimate), plus 4 volume checks (OBV vs its 20-day average, Chaikin Money Flow ±0.05, MFI, up vs down
+  volume) and 3 relative-strength checks against the S&P 500 (3 and 6 months, 12-1 momentum, ±2 points). Where TradingView's text leaves
+  the up/down trend open (Stoch RSI, Bull Bear Power) the trend is price vs its 50-day average — our choice. Indicators without enough
+  history do not vote.
+- Group score = mean of its votes; **composite verdict** = mean of the four groups; categories use TradingView's thresholds
+  (±0.1, ±0.5). The TradingView-only rating (moving averages + oscillators) and a weekly rating are shown next to it. Context values
+  (ADX/DI, ATR, Bollinger, 30-day volatility, swing support/resistance, classic pivots, 52-week range, returns, relative returns, last
+  golden/death cross) are shown, not voted.
+- **Track record**: for every stock, the last 252 days with a known 60-day outcome are scored; pooled over the universe, the average
+  forward return over the S&P 500 at 5, 20 and 60 days per verdict category, with the Strong Buy − Strong Sell spread, for both the
+  composite and the TradingView-only rating; each stock also shows its own 20-day record. Windows overlap, so days are not independent,
+  and one year is one market regime. On 27.11.2026 (Sep 2025–Sep 2026 scored) the composite spread was ≈0 / +1.0 / +2.3 points at 5 / 20 /
+  60 days and the TradingView-only spread about zero, which is why the volume and relative-strength groups are part of the verdict.
+- Other pages (Verdict, Sectors company detail) use the composite verdict through `techVerdict()`.
 
 ## Fundamental analysis
 
