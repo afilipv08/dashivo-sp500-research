@@ -211,6 +211,11 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   not the time. GitHub starts scheduled jobs hours late or drops them (on 26–27.11.2026 every run started after midnight and an
   earlier 16:00-based gate skipped them all, leaving a two-day gap), so `cron: '17 */2 * * *'` (every two hours, off the full hour)
   feeds a gate that runs only when today's date is not yet in `Output/top10_history.json`; manual runs always execute.
+- Backup trigger on the owner's Mac: launchd agent `com.dashivo.sp500.daily-research` (in `~/Library/LaunchAgents`, log in
+  `~/Library/Logs/dashivo-daily-research.log`) runs `daily_research_trigger.sh` at 09:05, 13:05, 17:05 and 21:05 (a missed time runs on
+  wake). It reads the history on GitHub and starts the workflow only when today has no research and no run is in progress, using the
+  GitHub CLI login already on the Mac (no stored token). It only helps when the Mac is on; a fully external trigger (e.g. cron-job.org
+  calling the `workflow_dispatch` API) would need a fine-grained token limited to this repository's Actions, created by the owner.
 - The Top 10 returns page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
 - The Returns calendar page (`web/calendar.js`, a Top 10 [filtered] sub-page) colours each trading day green or red by
