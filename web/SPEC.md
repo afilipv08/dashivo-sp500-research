@@ -199,7 +199,9 @@ Only bot commits touch `Output/` and `Investitii/`, so code changes do not confl
 
 ## Sector analysis
 
-The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived. Selecting a row reveals constituents, and the sector filter action routes to Top 10 [filtered].
+The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived.
+
+Drill-down: clicking a sector opens its companies directly under that row (one sector at a time; click again to close), with price and live price, live change, consensus, Buy+SB, analysts, upside and min-target proximity, sortable by any column. Clicking a company opens its detail inline: the same analysis card as Top 10 (52-week axis, targets, recommendation bar, rating history on hover) and the Technical, Fundamentals and Fair-value verdicts the dashboard computes for any stock, plus Invest, eToro and "filter this sector in Top 10". It works for every company, not only the Top 10; verdicts show "Loading…" until the market history and valuation snapshot arrive, then the page re-renders, and missing data shows as unavailable.
 
 ## Top 10 returns
 

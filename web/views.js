@@ -68,7 +68,7 @@ function stockCard(r, i) {
 const Views = {};
 
 /* ---------- Sector analysis: whole reported S&P 500 universe, independent of active Top 10 filters ---------- */
-const SECTOR_PAGE = { open: null, sort: { key: 'count', dir: -1 } };
+const SECTOR_PAGE = { open: null, sort: { key: 'count', dir: -1 }, company: null, csort: { key: 'weighted', dir: -1 } };
 const sectorStats = rows => {
   const valid = rows.filter(r => num(r.support) && num(r.total) && r.total > 0);
   const live = rows.map(r => num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null).filter(num);
@@ -87,39 +87,88 @@ function sectorConsensusTip(s) {
   const labels = ['Strong Buy', 'Buy', 'Hold', 'Underperform', 'Sell'];
   return tipHtml(s.name + ' · Analyst consensus', [tipRow('Analysts', nf(s.analysts)), ...labels.map((name, i) => tipRow(name, nf(s.consensus[i])))], 'Aggregated counts across all stocks with valid analyst recommendation data in this sector.');
 }
+/* ---------- sector drill-down: the companies of a sector, then one company's detail ---------- */
+const sectorLive = r => num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null;
+const SECTOR_COMPANY_COLS = [['symbol', 'Company'], ['price', 'Price'], ['live', 'Live vs report'], ['consensus', 'Consensus'], ['support', 'Buy + SB'], ['total', 'Analysts'], ['upside', 'Upside'], ['gap', 'Min-target proximity']];
+function sectorCompanyValue(r, key) { return key === 'live' ? sectorLive(r) : key === 'consensus' ? consensusOf(r) : key === 'symbol' ? r.symbol : r[key]; }
+/* the verdicts the dashboard already computes for any stock; each one stays out until its data has loaded */
+function companyVerdicts(r) {
+  loadSimulations(); if (!INTRINSIC.loaded) ivLoad();
+  const chip = (label, vote, text, title) => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'tech-verdict agent-' + (vote > 0 ? 'good' : vote < 0 ? 'bad' : 'mid'), title: title || '' }, text));
+  const wait = label => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'muted small' }, tr('Loading…')));
+  const none = label => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'muted small' }, tr('Unavailable')));
+  const t = SIM_VIEW.market ? techAnalyse(techSeries(SIM_VIEW.market, r.symbol)) : undefined;
+  const sources = INTRINSIC.data?.sources || {};
+  const f = INTRINSIC.loaded ? fundAnalyse(r, ivLookup(sources.zyberno?.rows, r.symbol), ivLookup(sources.equityRank?.rows, r.symbol)) : undefined;
+  const est = INTRINSIC.loaded ? ivEstimates(r, sources) : undefined;
+  return h('div', { class: 'cv-grid' },
+    t === undefined ? wait('Technical') : !t || t.verdict === 'unknown' ? none('Technical')
+      : chip('Technical', t.verdict === 'bullish' ? 1 : t.verdict === 'bearish' ? -1 : 0, tr(TECH_LABELS[t.verdict]) + (t.rsi != null ? ' · RSI ' + nf(t.rsi, 0) : ''), tr(techConclusion(t))),
+    f === undefined ? wait('Fundamentals') : !f || f.verdict === 'unknown' ? none('Fundamentals')
+      : chip('Fundamentals', f.verdict === 'strong' ? 1 : f.verdict === 'weak' ? -1 : 0, tr(FUND_LABELS[f.verdict]) + (f.pe ? ' · P/E ' + nf(f.pe, 1) : f.loss ? ' · ' + tr('Loss') : ''), tr(fundConclusion(f))),
+    est === undefined ? wait('Fair value') : est.n < 2 ? none('Fair value')
+      : chip('Fair value', est.upside >= .15 ? 1 : est.upside <= -.15 ? -1 : 0, usd1(est.median) + ' · ' + signedPct(est.upside), est.list.map(x => x.source + ' ' + usd1(x.value)).join(' · ')));
+}
+function companyDetail(r, sector) {
+  return h('div', { class: 'company-detail' },
+    h('div', { class: 'cd-card' }, stockCard({ ...r, issues: r.issues || [] }, 0)),
+    h('div', { class: 'cd-side' },
+      h('div', { class: 'up' }, tr('Analyses')), companyVerdicts(r),
+      h('div', { class: 'row cd-actions' },
+        typeof investButton === 'function' ? investButton(r) : null,
+        h('a', { class: 'etoro-open', href: etoroAssetUrl(r.symbol), target: '_blank', rel: 'noopener noreferrer' }, 'eToro ↗'),
+        btn('Filter this sector in Top 10 [filtered]', 'filter', () => { UI.f.sectors = [sector]; saveFilters(); App.go('top10'); }, 'sm ghost')),
+      h('p', { class: 'muted small' }, tr('Click the company again to close. Hover a verdict for the reason; the pages Technical, Fundamentals and Fair value explain each method.'))));
+}
+function sectorCompanies(sector) {
+  const ks = SECTOR_PAGE.csort, rows = [...sector.rows].sort((a, b) => {
+    const x = sectorCompanyValue(a, ks.key), y = sectorCompanyValue(b, ks.key);
+    if (x == null || x === 'N/A') return 1; if (y == null || y === 'N/A') return -1;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * ks.dir || a.symbol.localeCompare(b.symbol);
+  });
+  const head = h('tr', null, SECTOR_COMPANY_COLS.map(([key, title]) => h('th', { class: 'srt', onclick: e => { e.stopPropagation(); SECTOR_PAGE.csort = { key, dir: ks.key === key ? -ks.dir : key === 'symbol' || key === 'consensus' ? 1 : -1 }; App.render(); } },
+    tr(title), ks.key === key ? (ks.dir === 1 ? ' ↑' : ' ↓') : '')));
+  const body = [];
+  rows.forEach(r => {
+    const live = sectorLive(r), open = SECTOR_PAGE.company === r.symbol;
+    body.push(h('tr', { class: 'company-row' + (open ? ' selected' : ''), onclick: () => { SECTOR_PAGE.company = open ? null : r.symbol; App.render(); } },
+      h('td', { class: 'sym-cell' }, logoEl(r.symbol, 22), h('div', null, h('b', { class: 'notr' }, r.symbol), h('div', { class: 'muted small notr' }, r.company))),
+      h('td', { class: 'notr' }, usd1(r.price), num(LIVE.prices[r.symbol]) ? h('div', { class: 'muted small' }, tr('Live') + ' ' + usd1(LIVE.prices[r.symbol])) : null),
+      h('td', { class: 'notr ' + (live == null ? '' : live >= 0 ? 'positive' : 'negative') }, signedSector(live)),
+      h('td', { class: 'notr' }, consensusOf(r)), h('td', { class: 'notr' }, pctf(r.support)), h('td', { class: 'notr' }, nf(r.total)),
+      h('td', { class: 'notr ' + (r.upside < 0 ? 'negative' : r.upside > 0 ? 'positive' : '') }, pctf(r.upside)), h('td', { class: 'notr' }, pctf(r.gap))));
+    if (open) body.push(h('tr', { class: 'company-open' }, h('td', { colspan: SECTOR_COMPANY_COLS.length }, companyDetail(r, sector.name))));
+  });
+  return h('div', { class: 'sector-companies' },
+    h('div', { class: 'sc-head' }, h('b', null, sector.name + ' · ' + sector.count + ' ' + tr('companies')), h('span', { class: 'muted small' }, tr('Click a company for its detail; click the sector row again to close.'))),
+    h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl sc-tbl' }, h('thead', null, head), h('tbody', null, body))));
+}
 Views.sectors = () => {
   const sectors = sectorRows();
   const sorted = [...sectors].sort((a, b) => {
     const x = a[SECTOR_PAGE.sort.key], y = b[SECTOR_PAGE.sort.key];
     return x == null ? 1 : y == null ? -1 : SECTOR_PAGE.sort.dir * (x - y) || a.name.localeCompare(b.name);
   });
-  const choose = s => { SECTOR_PAGE.open = SECTOR_PAGE.open === s.name ? null : s.name; App.render(); };
+  const choose = s => { SECTOR_PAGE.open = SECTOR_PAGE.open === s.name ? null : s.name; SECTOR_PAGE.company = null; App.render(); };
   const columns = [['name','Sector'],['count','Companies'],['live','Avg. live vs report'],['support','Buy + Strong Buy'],['upside','Avg. upside'],['gap','Avg. min-target proximity']];
   const table = h('div', { class: 'tbl-wrap sector-table' }, h('table', { class: 'sp-tbl' },
     h('thead', null, h('tr', null, columns.map(([key, title]) => h('th', { class: 'srt', onclick: () => { SECTOR_PAGE.sort = { key, dir: SECTOR_PAGE.sort.key === key ? -SECTOR_PAGE.sort.dir : key === 'name' ? 1 : -1 }; App.render(); } }, title, SECTOR_PAGE.sort.key === key ? (SECTOR_PAGE.sort.dir === 1 ? ' ↑' : ' ↓') : '')))),
-    h('tbody', null, sorted.map(s => h('tr', { class: 'sector-row' + (SECTOR_PAGE.open === s.name ? ' selected' : ''), onclick: () => choose(s) },
+    h('tbody', null, sorted.flatMap(s => [h('tr', { class: 'sector-row' + (SECTOR_PAGE.open === s.name ? ' selected' : ''), onclick: () => choose(s) },
       h('td', null, sectorIcon(s.name, 17), ' ', h('b', { class: 'notr' }, s.name)),
       h('td', { class: 'notr' }, nf(s.count)),
       h('td', { class: 'notr ' + (s.live == null ? '' : s.live >= 0 ? 'positive' : 'negative') }, s.live == null ? '—' : signedSector(s.live), h('small', { class: 'muted' }, ' · ' + s.liveCount + ' ' + tr('with live prices'))),
       h('td', null, hoverTip(h('span', { class: 'notr' }, pctf(s.support)), () => sectorConsensusTip(s))),
       h('td', { class: 'notr ' + (s.upside == null ? '' : s.upside >= 0 ? 'positive' : 'negative') }, pctf(s.upside)),
-      h('td', { class: 'notr' }, pctf(s.gap)))))));
-  const metricCards = card('Sector comparison', 'All reported S&P 500 companies; click a row to inspect its stocks. Live change = current quote vs the source report price, not a time-period return.', table, null, 'c12');
+      h('td', { class: 'notr' }, pctf(s.gap))), ...(SECTOR_PAGE.open === s.name ? [h('tr', { class: 'sector-open' }, h('td', { colspan: columns.length }, sectorCompanies(s)))] : [])]))));
+  const metricCards = card('Sector comparison', 'All reported S&P 500 companies; click a sector to see its companies, then a company for its detail. Live change = current quote vs the source report price, not a time-period return.', table, null, 'c12');
   const charts = h('div', { class: 'grid mt' },
     card('Live change by sector', 'Average of available live quote / report price − 1', barList([...sectors].sort((a,b) => (b.live ?? -Infinity) - (a.live ?? -Infinity)).map(s => ({ label: s.name, value: (s.live ?? 0) * 100, color: s.live < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies', nf(s.count)), tipRow('Average change', signedSector(s.live)), tipRow('Live quotes included', nf(s.liveCount))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c7'),
     card('Analyst upside', 'Simple mean of report upside to mean analyst target; not a forecast return', barList([...sectors].sort((a,b) => (b.upside ?? -Infinity) - (a.upside ?? -Infinity)).map(s => ({ label: s.name, value: (s.upside ?? 0) * 100, color: s.upside < 0 ? 'var(--bad)' : 'var(--good)', tip: tipHtml(s.name, [tipRow('Companies with valid target', nf(s.upsideCount)), tipRow('Average upside', pctf(s.upside))]) })), { fmt: v => (v >= 0 ? '+' : '−') + nf(Math.abs(v), 1) + '%' }), null, 'c5'));
-  const selected = sectors.find(s => s.name === SECTOR_PAGE.open);
-  const detail = selected ? card(selected.name + ' · ' + selected.count + ' companies', 'Current live price vs report price; other values come from the report. Click the sector row again to close.', h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl' },
-    h('thead', null, h('tr', null, ['Company','Live vs report','Buy + SB','Analysts','Upside','Min-target proximity'].map(x => h('th', null, x)))),
-    h('tbody', null, [...selected.rows].sort((a,b) => (b.weighted ?? -1) - (a.weighted ?? -1)).map(r => { const live = num(LIVE.prices[r.symbol]) && r.price > 0 ? LIVE.prices[r.symbol] / r.price - 1 : null;
-      return h('tr', null, h('td', { class: 'sym-cell' }, logoEl(r.symbol, 22), h('div', null, h('b', { class: 'notr' }, r.symbol), h('div', { class: 'muted small notr' }, r.company))),
-        h('td', { class: 'notr ' + (live == null ? '' : live >= 0 ? 'positive' : 'negative') }, signedSector(live)), h('td', { class: 'notr' }, pctf(r.support)), h('td', { class: 'notr' }, nf(r.total)), h('td', { class: 'notr ' + (r.upside < 0 ? 'negative' : 'positive') }, pctf(r.upside)), h('td', { class: 'notr' }, pctf(r.gap))); })))),
-    btn('Filter this sector in Top 10 [filtered]', 'filter', () => { UI.f.sectors = [selected.name]; saveFilters(); App.go('top10'); }, 'sm'), 'c12') : null;
   const liveMissing = universe().length - Object.keys(LIVE.prices || {}).filter(s => universe().some(r => r.symbol === s)).length;
   return h('div', null,
     h('div', { class: 'banner' }, icon('alert', 18), h('b', null, 'All sectors · full SP500 universe'), h('span', null, DATA.sourceDate), h('span', { class: 'muted' }, 'Top 10 filters do not affect this comparison.')),
     h('div', { class: 'kpis' }, kpi('Sectors', sectors.length, 'GICS sectors found in the report'), kpi('Companies', universe().length, 'in the current report'), kpi('Live quotes', Object.keys(LIVE.prices || {}).filter(s => universe().some(r => r.symbol === s)).length, LIVE.at ? tr('Updated') + ' ' + new Date(LIVE.at).toLocaleString(I18N.locale) : tr('No live quotes yet')), kpi('Missing quotes', liveMissing, 'excluded only from live-change average')),
-    metricCards, charts, detail);
+    metricCards, charts);
 };
 const signedSector = v => num(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v) * 100, 1) + '%' : '—';
 
