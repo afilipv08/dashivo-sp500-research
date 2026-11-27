@@ -18,6 +18,7 @@ import urllib.request
 
 import dashboard
 import intrinsic_value
+import technical
 
 BASE = Path(__file__).resolve().parent
 SITE = BASE / 'site'
@@ -177,6 +178,16 @@ def build(refresh=False):
             print('history:', exc)
     if hist:
         write_json('history.json', hist)
+
+    # technical analysis from three years of daily OHLCV for every stock; recomputed at most twice a day
+    tech = previous('technical.json') if refresh else None
+    if refresh and not (tech and tech.get('schema') == technical.SCHEMA and fresh(tech, 12)):
+        try:
+            tech = technical.build(symbols)
+        except Exception as exc:
+            print('technical:', exc)
+    if tech:
+        write_json('technical.json', tech)
 
     if refresh:
         try:
