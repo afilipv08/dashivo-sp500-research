@@ -207,10 +207,11 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   in `Output/top10_history.json` (committed): one entry per day, latest run of the day wins, with price, proximity,
   upside, score and how many stocks matched. Its preset rules and ranking copy `web/data.js` and must stay equal
   (tested against the Investitii Top 5). `--backfill` rebuilt it from the saved reports.
-- The online research runs every day (weekends included, by the user's choice) at 16:00 Romania time. GitHub cron is
-  UTC and can start hours late or be dropped, so five UTC schedules (13, 14, 17, 20 and 22:30) feed a gate that runs
-  only after 16:00 Bucharest time and only when `Output/top10_history.json` has no entry for today's date; manual runs
-  always execute. This is what closes day gaps without duplicate runs.
+- The online research runs every day (weekends included, by the user's choice) after 16:00 Romania time. GitHub cron is UTC and
+  starts scheduled jobs hours late (on 26–27.11.2026 every run started after midnight Bucharest), so five UTC schedules feed a gate
+  that runs whenever the newest `at` in `Output/top10_history.json` is older than the most recent 16:00 Bucharest that has passed;
+  manual runs always execute. A same-day "today's date already recorded" check skipped every late run and left a two-day gap; the
+  boundary check catches up late instead, at the cost of the entry being dated the day the job actually ran.
 - The Top 10 returns page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
 - The Returns calendar page (`web/calendar.js`, a Top 10 [filtered] sub-page) colours each trading day green or red by
