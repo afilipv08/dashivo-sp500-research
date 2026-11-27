@@ -1,17 +1,11 @@
-# Daily SP500 research at 16:00 Romania time (every day, including weekends), plus catch-up runs the same day,
-# and on demand from the dashboard's "Run research" button.
+# One SP500 research per calendar day (Romania time), at any hour, plus on demand from the dashboard's "Run research" button.
 # Runs yahoo_unificat.py, commits the new Excel reports and the Top 10 history, then rebuilds and publishes the site.
-# GitHub cron is in UTC and can start hours late or be dropped: several schedules per day feed a gate that runs
-# whenever no research has been recorded since the most recent 16:00 Romania time (GitHub often starts
-# scheduled jobs hours late, past midnight, so a same-day check skipped every run).
+# GitHub starts scheduled jobs late or drops them under load, so a schedule every two hours (off the full hour) feeds a gate
+# that runs only when today's date is not yet in Output/top10_history.json.
 name: Research SP500
 on:
   schedule:
-    - cron: '0 13 * * *'
-    - cron: '0 14 * * *'
-    - cron: '0 17 * * *'
-    - cron: '0 20 * * *'
-    - cron: '30 22 * * *'
+    - cron: '17 */2 * * *'   # every two hours, off the full hour; the gate keeps one research per day
   workflow_dispatch:
 permissions:
   contents: write
@@ -32,21 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: gate
-        name: Run once after each 16:00 Romania time, even when GitHub starts the job hours late
+        name: Run once per calendar day (Romania time), at whatever hour GitHub starts the job
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import json
-          from datetime import datetime, timedelta
-          now = datetime.now()                      # TZ=Europe/Bucharest for the whole job
-          boundary = now.replace(hour=16, minute=0, second=0, microsecond=0)
-          if now < boundary:
-              boundary -= timedelta(days=1)         # the most recent 16:00 that has already passed
+          import json, sys
+          from datetime import date
+          today = date.today().isoformat()          # TZ=Europe/Bucharest for the whole job
           days = json.load(open('Output/top10_history.json')).get('days') or []
-          last = max((d.get('at') or '' for d in days), default='')
-          due = not last or datetime.fromisoformat(last[:19]) < boundary
-          print('run=' + ('true' if due else 'false'))
-          print(f'last research {last or "none"}, due since {boundary:%Y-%m-%d %H:%M}', file=__import__('sys').stderr)
+          done = any(d.get('date') == today for d in days)
+          print('run=' + ('false' if done else 'true'))
+          print(f'{today}: ' + ('research already recorded, skipping' if done else 'no research yet, running'), file=sys.stderr)
           EOF
       - uses: actions/setup-python@v5
         if: steps.gate.outputs.run == 'true'

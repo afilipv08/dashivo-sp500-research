@@ -180,7 +180,7 @@ hover from Yahoo (`ratings.py`, `GET /api/ratings?symbol=`, cached a day).
   provider's official Fair Value Calculator SVG embed. `SEC_CONTACT_EMAIL` is supplied to the Pages
   build only as a GitHub Actions secret and is used only in the SEC User-Agent; neither it nor raw SEC
   responses are published. The browser and local server consume the attribution-safe static snapshot.
-- GitHub Actions: `research.yml` every day at 16:00 Europe/Bucharest (five UTC schedules feeding a gate, see Top 10 returns) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 returns, then publishes; `site.yml` refreshes prices every 30 minutes in US
+- GitHub Actions: `research.yml` once per calendar day, Europe/Bucharest (a two-hourly schedule feeding a gate, see Top 10 returns) and on demand runs `yahoo_unificat.py`, commits reports and Top 10 returns, then publishes; `site.yml` refreshes prices every 30 minutes in US
   market hours, crypto every 2 hours, and rebuilds after every push to `main`. Its deploy token is limited to
   `contents:read`, `actions:read` (Pages artifact lookup), `pages:write`, and `id-token:write`.
 - `deploy-pages` intermittently reported "Found 0 artifact(s)" right after the upload (about half of the runs on 25.11.2026,
@@ -207,16 +207,15 @@ The sector page summarizes the full reported SP500 universe, independent of Top 
   in `Output/top10_history.json` (committed): one entry per day, latest run of the day wins, with price, proximity,
   upside, score and how many stocks matched. Its preset rules and ranking copy `web/data.js` and must stay equal
   (tested against the Investitii Top 5). `--backfill` rebuilt it from the saved reports.
-- The online research runs every day (weekends included, by the user's choice) after 16:00 Romania time. GitHub cron is UTC and
-  starts scheduled jobs hours late (on 26–27.11.2026 every run started after midnight Bucharest), so five UTC schedules feed a gate
-  that runs whenever the newest `at` in `Output/top10_history.json` is older than the most recent 16:00 Bucharest that has passed;
-  manual runs always execute. A same-day "today's date already recorded" check skipped every late run and left a two-day gap; the
-  boundary check catches up late instead, at the cost of the entry being dated the day the job actually ran.
+- The online research runs **once per calendar day** (Romania time), at any hour: by the user's decision only the daily cadence matters,
+  not the time. GitHub starts scheduled jobs hours late or drops them (on 26–27.11.2026 every run started after midnight and an
+  earlier 16:00-based gate skipped them all, leaving a two-day gap), so `cron: '17 */2 * * *'` (every two hours, off the full hour)
+  feeds a gate that runs only when today's date is not yet in `Output/top10_history.json`; manual runs always execute.
 - The Top 10 returns page compares each day's picks with the current live price (“since selection”), shows the
   most frequent stocks, and lists “My saves”: Top 10 lists saved from the current filters on the device.
 - The Returns calendar page (`web/calendar.js`, a Top 10 [filtered] sub-page) colours each trading day green or red by
   the equal-weighted day-over-day price return of the Top 10 selection in force that day: the latest saved selection
-  made on an **earlier** date, because a selection is made at 16:00 Romania time, during the US session, so its first full
+  made on an **earlier** date, because a selection is made at some hour of that day, often during the US session, so its first full
   day is the next one. Hover shows the portfolio and S&P 500 percentages and each pick; a click lists the picks. Days
   without a market close, without a prior selection, or with no usable prices stay grey; nothing is estimated. It reads the
   same `top10-history` and `market-history` data as the simulations.

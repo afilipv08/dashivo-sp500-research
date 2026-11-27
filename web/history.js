@@ -36,7 +36,7 @@ Views.history = () => {
   loadHistory();
   const entries = histEntries();
   const seg = h('div', { class: 'seg hist-seg' }, HIST_PRESETS.map(([k, label]) => h('button', { class: HIST.preset === k ? 'on' : '', onclick: () => { HIST.preset = k; HIST.open = null; App.render(); } }, label)));
-  const head = card('Top 10 returns', 'Saved automatically after every research run (every day at 16:00 online); “My saves” are the Top 10 lists you saved from Top 10 [filtered] on this device.',
+  const head = card('Top 10 returns', 'Saved automatically after every research run (once a day online); “My saves” are the Top 10 lists you saved from Top 10 [filtered] on this device.',
     h('div', { class: 'row' }, seg, h('span', { class: 'sp' }), btn('Simulation results', 'trend', () => App.go('simulations'), 'sm ghost'), btn('Save current Top 10', 'plus', () => { saveTop10(); App.render(); }, 'sm')));
   if (!HIST.data && HIST.preset !== 'mine') return h('div', null, head, card(null, null, h('div', { class: 'empty' }, 'Loading the history…')));
   if (!entries.length) return h('div', null, head, card(null, null, h('div', { class: 'empty' }, HIST.preset === 'mine' ? 'No saved Top 10 yet. Use “Save current Top 10” here or on Top 10 [filtered].' : 'No days recorded yet.')));

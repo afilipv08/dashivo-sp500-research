@@ -5,7 +5,7 @@ const CAL_PRESETS = [['default', 'Default Top 10'], ['excel', 'Excel Top 10'], [
 const CAL_SATURATION = 0.02;   // a ±2% day reaches the strongest colour
 
 /* the selection in force on a trading day = the latest saved one made on an earlier date (a pick made on the
-   day itself is taken at 16:00 Romania time, i.e. during the US session, so its first full day is the next one) */
+   day itself is taken at some hour of that day, often during or after the US session, so its first full day is the next one) */
 function calSelection(history, preset, day) {
   const days = (history.days || []).filter(d => d.date < day && d.presets?.[preset]?.items?.length).sort((a, b) => b.date.localeCompare(a.date));
   const entry = days[0]; if (!entry) return null;
