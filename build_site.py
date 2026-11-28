@@ -20,6 +20,7 @@ import dashboard
 import intrinsic_value
 import technical
 import fundamentals
+import valuation
 
 BASE = Path(__file__).resolve().parent
 SITE = BASE / 'site'
@@ -214,6 +215,16 @@ def build(refresh=False):
             print('fundamentals:', exc)
     if fund:
         write_json('fundamentals.json', fund)
+
+    # fair value: eight calculated methods from the fundamentals plus external sources; at most twice a day
+    val = previous('valuation.json') if refresh else None
+    if refresh and fund and not (val and val.get('schema') == valuation.SCHEMA and fresh(val, 12)):
+        try:
+            val = valuation.build(fund, intrinsic_data, (live or {}).get('prices'))
+        except Exception as exc:
+            print('valuation:', exc)
+    if val:
+        write_json('valuation.json', val)
 
     import top10_history
     write_json('top10_history.json', top10_history.load())

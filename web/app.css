@@ -345,3 +345,9 @@ a.btn{text-decoration:none}
 @media(max-width:900px){.fd-facts{grid-template-columns:1fr}}
 .fund-tbl{min-width:0}.tv-group{min-width:0}.tv-group .fd-tbl{display:block;overflow-x:auto}
 .agent-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.iv-table td.iv-cell{min-width:96px}.iv-cell .has-tip{display:flex;flex-direction:column;gap:2px;cursor:help}.iv-state{font-size:11px;color:var(--muted);font-weight:600}
+.iv-fit{display:block;font-size:9px;color:var(--muted);white-space:nowrap}.iv-fit.fit-good{color:var(--good)}.iv-fit.fit-limited{color:color-mix(in srgb,var(--warn) 70%,var(--text))}.iv-fit.fit-poor{color:var(--bad)}
+.iv-poor .iv-value{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--bad) 60%,transparent);opacity:.75}.iv-na,.iv-missing{background:color-mix(in srgb,var(--tint1) 60%,transparent)}
+.iv-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0 10px;font-size:11px}.iv-legend .iv-fit{font-size:11px}
+.val-detail{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.val-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);font-size:12px}.val-item>b{display:block;margin-bottom:6px;font-size:13px}.val-item .tr{display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dashed var(--line)}.val-item .tr span{color:var(--muted)}.val-item .tn{margin-top:6px;color:var(--muted);font-size:11px}
+.iv-table td:first-child{min-width:170px}

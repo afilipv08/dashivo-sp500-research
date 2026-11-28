@@ -12,7 +12,7 @@ import json
 import math
 import urllib.request
 
-SCHEMA = 1
+SCHEMA = 3
 ER_URL = 'https://api.equity-rank.com/api/stocks/{}/public'
 # (key, label, pillar, higher_is_better)
 METRICS = [
@@ -97,7 +97,11 @@ def metrics_from(info, er=None, zyberno=None):
         'payoutSafety': 1 - payout if payout and payout > 0 and dy and dy > 0 else None,
         'erCapital': pillars.get('capital_allocation'),
     }
-    extras = {'trailingPE': tpe, 'beta': g('beta'), 'marketCap': cap, 'industry': info.get('industry'), 'sector': info.get('sector'),
+    raw_keys = ('trailingEps', 'forwardEps', 'bookValue', 'dividendRate', 'payoutRatio', 'sharesOutstanding', 'freeCashflow', 'ebitda', 'totalRevenue',
+                'operatingMargins', 'totalDebt', 'totalCash', 'beta', 'returnOnEquity', 'earningsGrowth', 'revenueGrowth', 'currentPrice', 'enterpriseToEbitda')
+    raw = {k: g(k) for k in raw_keys}
+    raw['revenue'] = revenue
+    extras = {'raw': raw, 'trailingPE': tpe, 'beta': g('beta'), 'marketCap': cap, 'industry': info.get('industry'), 'sector': info.get('sector'),
               'erStrength': _num(er.get('fundamental_strength_score')), 'erGrade': er.get('fundamental_strength_grade'),
               'nextEarnings': er.get('next_earnings_date'), 'reports': [{k: r.get(k) for k in ('report_date', 'eps_estimate', 'eps_actual', 'surprise_pct')} for r in reports]}
     return out, extras
@@ -173,7 +177,9 @@ def build(rows, zyberno_rows=None, fetch_info=_fetch_info, fetch_er=_fetch_er, w
         metrics, extras = metrics_from(infos.get(sym), ers.get(sym), zyberno_rows.get(sym))
         if not any(v is not None for v in metrics.values()):
             continue
-        companies[sym] = {'sector': r.get('sector') or extras.get('sector') or 'Unknown', 'metrics': {k: (round(v, 4) if isinstance(v, float) else v) for k, v in metrics.items()}, **extras}
+        # the report's GICS sector wins over Yahoo's own sector names (Yahoo says 'Technology', GICS 'Information Technology')
+        companies[sym] = {**extras, 'yahooSector': extras.get('sector'), 'sector': r.get('sector') or extras.get('sector') or 'Unknown',
+                          'metrics': {k: (round(v, 4) if isinstance(v, float) else v) for k, v in metrics.items()}}
     medians = score_all(companies)
     return {'schema': SCHEMA, 'at': datetime.now().astimezone().isoformat(timespec='seconds'),
             'sources': {'yahoo': sum(1 for s in symbols if infos.get(s)), 'equityRank': sum(1 for s in symbols if ers.get(s)), 'requested': len(symbols)},

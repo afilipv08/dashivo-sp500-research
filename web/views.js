@@ -99,10 +99,9 @@ function companyVerdicts(r) {
   const none = label => h('div', { class: 'cv-item' }, h('small', null, tr(label)), h('span', { class: 'muted small' }, tr('Unavailable')));
   techLoad();
   const t = TECH.data ? techVerdict(r.symbol) : TECH.error ? null : undefined;
-  const sources = INTRINSIC.data?.sources || {};
   fundLoad();
   const f = FUND.data ? fundVerdict(r.symbol) : FUND.error ? null : undefined;
-  const est = INTRINSIC.loaded ? ivEstimates(r, sources) : undefined;
+  const est = INTRINSIC.loaded ? ivEstimates(r) : undefined;
   return h('div', { class: 'cv-grid' },
     t === undefined ? wait('Technical analysis') : !t ? none('Technical analysis') : chip('Technical analysis', t.vote, t.text, t.title),
     f === undefined ? wait('Fundamental analysis') : !f ? none('Fundamental analysis') : chip('Fundamental analysis', f.vote, f.text, f.title),

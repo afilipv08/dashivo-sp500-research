@@ -30,8 +30,7 @@ function sumSignals(stock) {
   if (tv) out.tech = tv;
   const fv = fundVerdict(stock.symbol);
   if (fv) out.fund = fv;
-  const sources = INTRINSIC.data?.sources || {};
-  const est = INTRINSIC.loaded ? ivEstimates(stock, sources) : null;
+  const est = INTRINSIC.loaded ? ivEstimates(stock) : null;
   if (est && est.n >= 2) out.value = { vote: est.upside >= SUM_VALUE_STEP ? 1 : est.upside <= -SUM_VALUE_STEP ? -1 : 0, text: signedPct(est.upside), title: tr('Median of') + ' ' + est.n + ' ' + tr('estimates') + ': ' + usd1(est.median) };
   const ta = SUM.agents.tradingagents?.[stock.symbol];
   if (ta?.rating) out.ta = { vote: AGENT_RATING[ta.rating] === 'good' ? 1 : AGENT_RATING[ta.rating] === 'bad' ? -1 : 0, text: tr(ta.rating), title: ta.date + ' · ' + (ta.summary || '') };

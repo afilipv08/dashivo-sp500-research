@@ -234,30 +234,25 @@ Drill-down: clicking a sector opens its companies directly under that row (one s
   Each cohort row expands to its picks with entry price, latest available close and the return since selection,
   plus the S&P 500 since the selection day, so every day's selection can be followed individually.
 
-## Intrinsic value
+## Fair value
 
-The Intrinsic value page uses the current Top 10 selected by the user's active filters and ranking. It
-shows the live quote when available, otherwise the report price is identified as such. External sources
-are dated and linked: Equity Rank's blended model value, Fair Value Calculator's official per-ticker
-attributed SVG badge, and Zyberno's CC BY 4.0 monthly cross-section. Zyberno publishes company-level
-intrinsic value, so the displayed per-share value is explicitly approximate and calculated as
-`intrinsic_value_usd / (market_cap_usd / price_usd)`; the source inputs, row date and snapshot date are
-available with the estimate. Missing provider values or conversion inputs remain unavailable.
-
-The three filing-based methods use SEC Company Facts: (1) a five-year FCF-per-diluted-share DCF, where
-annual FCF is operating cash flow minus property/plant/equipment purchases, using 5% explicit growth,
-9% discount rate and 2.5% terminal growth; (2) Graham Number, `sqrt(22.5 × diluted EPS × book value per
-share)`; and (3) Gordon-growth DDM, `next annual dividend per share / (9% required return − 2.5%
-dividend growth)`. Inputs, filing dates and assumptions accompany results. These baseline assumptions
-are unconfirmed, not forecasts; missing, nonpositive or incompatible inputs produce unavailable
-results rather than invented estimates. While SEC filings are not connected (no `SEC_CONTACT_EMAIL`), `sources.ttm` gives the DCF and the Graham Number
-from Zyberno's trailing-twelve-month values (shares = market cap / source price, book value = net income / ROE, so both are approximate and
-labelled as such); the dividend model stays unavailable because no free source here carries dividends. A filing-based value, when present,
-always wins over the derived one. SEC calls are build-side, paced below 10 requests/second, and
-skipped unless the `SEC_CONTACT_EMAIL` Actions secret is configured. A provider 429 stops further
-source requests in that build; the current snapshot is retained and the next refresh waits for its
-24-hour cache window.
-
+The Fair value page (`web/intrinsic.js`) shows the current Top 10 (and any stock picked) from `data/valuation.json`, which `valuation.py`
+builds (at most twice a day) from the Yahoo statistics kept in `data/fundamentals.json` (`raw`) and the valuation snapshot; the local
+server serves it at `/api/valuation`.
+- **Eight calculated methods**: discounted cash flow (5 years at revenue growth held to 0–12%, then terminal value), Graham Number,
+  Gordon dividend discount (only for payers), Greenwald earnings power value, Peter Lynch fair value (P/E = growth + dividend yield, growth
+  held to 5–25), peer P/E and peer EV/EBITDA multiples (median of the company's group: its GICS sector, REITs apart, the universe when a group
+  has fewer than five), residual income (justified P/B). Required return = 4.5% risk-free + beta × 5% held to 7–13%; terminal growth 2.5%;
+  tax 21% — baseline assumptions, shown with every result.
+- **Five external sources**: Equity Rank, Zyberno (approximate per share), Slate Finch (fair value + range from SEC filings; credit, link and
+  its not-advice notice shown; its IEX closes are not used), SweetValueLab (median model value + range, CC BY 4.0), and the Fair Value
+  Calculator badge.
+- Every cell says one of: a value (with the gap to the live or report price), **No data** (which input is missing) or **Not applicable**
+  (e.g. no dividend, negative free cash flow); and how the method **fits the industry** — suited, limited fit or not suited, with the reason
+  (e.g. free cash flow and EBITDA are not meaningful for banks; the Graham Number undervalues asset-light technology; REITs are valued on FFO).
+  Hover shows the formula, the inputs, the assumptions and the fit; clicking a stock lists every explanation at once (also for phones).
+  "Not suited" values stay visible, struck through, and are left out of the **median** of all usable estimates.
+- The SEC Company Facts methods (`intrinsic_value.py`) still need the `SEC_CONTACT_EMAIL` secret and are not part of this page until it is set.
 ## Verdict
 
 The Verdict page (`web/summary.js`, first sub-page of Top 10 [filtered]) puts the analyses of the current Top 10 side by side so they

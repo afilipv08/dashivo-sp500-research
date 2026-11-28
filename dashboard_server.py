@@ -476,6 +476,11 @@ def make_server(port=8765, lan=False):
                     self.reply(200, technical_data())
                 except Exception:
                     self.reply(503, {'error': 'Technical analysis data is unavailable right now.'})
+            elif self.path == '/api/valuation':
+                try:
+                    self.reply(200, site_data('valuation.json', 'stocks'))
+                except Exception:
+                    self.reply(503, {'error': 'Fair value data is unavailable right now.'})
             elif self.path == '/api/fundamentals':
                 try:
                     self.reply(200, site_data('fundamentals.json', 'stocks'))

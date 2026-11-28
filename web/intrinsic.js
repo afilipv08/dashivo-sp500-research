@@ -1,6 +1,10 @@
 'use strict';
-/* ---------- external and calculated per-share value estimates ---------- */
-const INTRINSIC = { data: null, loading: false, loaded: false, error: '' };
+/* ================= Fair value: 8 calculated methods + 5 external sources per stock (valuation.py → data/valuation.json) =================
+   Every cell explains itself on hover (formula, inputs, assumptions), says when data was missing or the method does not apply,
+   and whether the method suits the company's industry. Poorly suited methods are shown but left out of the median. */
+const INTRINSIC = { data: null, loading: false, loaded: false, error: '' };   // kept for older callers; holds the valuation payload
+const VAL = { open: null, extra: '' };
+const FVC_EMBED = 'https://www.fairvalue-calculator.com/embed/{}.svg';
 const ivTickerKey = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 function ivLookup(rows, symbol) {
   if (!rows) return null;
@@ -8,137 +12,147 @@ function ivLookup(rows, symbol) {
   const key = ivTickerKey(symbol);
   return Object.entries(rows).find(([ticker]) => ivTickerKey(ticker) === key)?.[1] || null;
 }
-function ivDate(value) { return value ? String(value).slice(0, 10) : '—'; }
-function ivLink(label, href, cls = 'iv-link') {
-  return h('a', { class: cls, href, target: '_blank', rel: 'noopener noreferrer' }, label);
-}
-function ivUnavailable(reason) {
-  return h('div', { class: 'iv-unavailable', title: reason || tr('No verified estimate is available for this stock.') }, tr('Unavailable'),
-    reason ? h('small', null, reason) : null);
-}
-function ivValue(value, sourceDate, title, prefix = '') {
-  return h('div', { class: 'iv-value', title: title || '' },
-    num(value) && value > 0 ? prefix + usd1(value) : ivUnavailable(title),
-    sourceDate ? h('small', { class: 'iv-date' }, tr('Source date') + ': ' + ivDate(sourceDate)) : null);
-}
-function ivMethodCell(method, sourceStatus) {
-  if (!method) {
-    const reason = sourceStatus === 'contact_required' ? tr('SEC contact secret is not configured.') : tr('No filing data is available for this method.');
-    return h('td', null, ivUnavailable(reason));
-  }
-  const details = [method.reason, method.inputs && Object.entries(method.inputs).map(([k, v]) => k + ': ' + (num(v) ? nf(v, 3) : v)).join(' · '),
-    method.assumptions && Object.entries(method.assumptions).map(([k, v]) => k + ': ' + (num(v) ? nf(v * (Math.abs(v) <= 1 ? 100 : 1), 1) + (Math.abs(v) <= 1 ? '%' : '') : v)).join(' · ')].filter(Boolean).join('\n');
-  return h('td', null, num(method.value) && method.value > 0 ? ivValue(method.value, method.inputs?.filed || method.inputs?.fiscalYear || method.inputs?.asOf, details) : ivUnavailable(method.reason || details));
-}
-function ivSourceCell(source, symbol, kind) {
-  const item = ivLookup(source?.rows, symbol);
-  if (!item || !num(item.value) || item.value <= 0) {
-    const reason = source?.status === 'rate_limited' ? tr('Provider temporarily rate-limited this source.')
-      : source?.status === 'unavailable' ? tr('Provider data is temporarily unavailable.')
-        : item?.reason || tr('No usable per-share estimate or conversion inputs are available.');
-    return h('td', null, ivUnavailable(reason));
-  }
-  if (kind === 'zyberno') {
-    const formula = 'Approximate per share = company intrinsic value / (market capitalization / source price). '
-      + 'Company value: ' + usd1(item.companyValue) + '; market cap: ' + usd1(item.marketCap) + '; source price: ' + usd1(item.sourcePrice)
-      + '; implied shares: ' + nf(item.impliedShares, 0) + '. Snapshot: ' + (item.snapshotDate || '—');
-    return h('td', null, ivLink('~' + usd1(item.value), 'https://zyberno.com/brina-gap/' + encodeURIComponent(symbol) + '/', 'iv-value iv-link'),
-      h('small', { class: 'iv-date', title: formula }, tr('Source date') + ': ' + ivDate(item.asOf || item.snapshotDate)),
-      h('small', { class: 'iv-date' }, tr('Approximate per share')));
-  }
-  const details = 'Equity Rank blended model fair-value estimate; batch price: ' + usd1(item.price) + '; not a price target or forecast.';
-  return h('td', null, ivLink(usd1(item.value), 'https://www.equity-rank.com/', 'iv-value iv-link'),
-    h('small', { class: 'iv-date', title: details }, tr('Source date') + ': ' + ivDate(item.asOf)));
-}
-function ivFvcCell(symbol, template) {
-  const url = (template || 'https://www.fairvalue-calculator.com/embed/{}.svg').replace('{}', encodeURIComponent(symbol));
-  const page = 'https://www.fairvalue-calculator.com/stock/' + encodeURIComponent(symbol) + '?utm_source=embed&utm_medium=badge';
-  const image = h('img', { class: 'iv-fvc', src: url, alt: tr('Fair Value Calculator per-share estimate for') + ' ' + symbol,
-    loading: 'lazy', referrerpolicy: 'no-referrer' });
-  image.addEventListener('error', () => image.replaceWith(ivUnavailable(tr('Fair Value Calculator has no available embed for this stock.'))), { once: true });
-  return h('td', null, ivLink(image, page, 'iv-fvc-link'));
-}
-function ivLivePrice(stock) {
-  const live = LIVE.prices?.[stock.symbol];
-  if (num(live) && live > 0) return h('div', { class: 'iv-value' }, usd1(live), h('small', { class: 'iv-date' }, tr('Live')));
-  return h('div', { class: 'iv-unavailable' }, usd1(stock.price), h('small', null, tr('Report price; live quote unavailable')));
-}
-/* every positive per-share estimate for a stock (SEC filings first, trailing-twelve-month values otherwise) and their median against the price */
-function ivEstimates(stock, sources) {
-  const live = LIVE.prices?.[stock.symbol], price = num(live) && live > 0 ? live : stock.price;
-  const sec = ivLookup(sources.sec?.rows, stock.symbol) || {}, ttm = ivLookup(sources.ttm?.rows, stock.symbol) || {};
-  const pick = (a, b) => (a?.value ? a : b);
-  const list = [['Equity Rank', ivLookup(sources.equityRank?.rows, stock.symbol)?.value], ['Zyberno', ivLookup(sources.zyberno?.rows, stock.symbol)?.value],
-    ['DCF', pick(sec.dcf, ttm.dcf)?.value], ['Graham', pick(sec.graham, ttm.graham)?.value], ['DDM', pick(sec.ddm, ttm.ddm)?.value]]
-    .filter(([, v]) => num(v) && v > 0).map(([source, value]) => ({ source, value })).sort((a, b) => a.value - b.value);
-  const n = list.length, mid = n % 2 ? list[(n - 1) / 2].value : n ? (list[n / 2 - 1].value + list[n / 2].value) / 2 : null;
-  return { price, list, n, median: mid, upside: mid != null && num(price) && price > 0 ? mid / price - 1 : null };
-}
-function ivMedianCell(est) {
-  if (est.n < 2) return h('td', null, ivUnavailable(tr('At least two estimates are needed.')));
-  const tip = est.list.map(x => x.source + ' ' + usd1(x.value)).join(' · ');
-  return h('td', null, h('div', { class: 'iv-value', title: tip }, usd1(est.median), h('small', { class: 'iv-delta ' + plClass(est.upside) }, signedPct(est.upside) + ' ' + tr('vs price')),
-    h('small', { class: 'iv-date' }, est.n + ' ' + tr('estimates') + ' · ' + usd1(est.list[0].value) + '–' + usd1(est.list.at(-1).value))));
-}
+function ivLink(label, href, cls = 'iv-link') { return h('a', { class: cls, href, target: '_blank', rel: 'noopener noreferrer' }, label); }
 function ivLoad() {
   if (INTRINSIC.loaded || INTRINSIC.loading) return;
   INTRINSIC.loading = true;
-  runRequest('/api/intrinsic-values').then(data => { INTRINSIC.data = data; INTRINSIC.error = ''; })
-    .catch(error => { INTRINSIC.error = error.message || tr('Intrinsic-value data is unavailable.'); })
+  runRequest('/api/valuation').then(data => { INTRINSIC.data = data; INTRINSIC.error = ''; })
+    .catch(error => { INTRINSIC.error = error.message || tr('Fair value data is unavailable.'); })
     .finally(() => { INTRINSIC.loading = false; INTRINSIC.loaded = true; if (['intrinsic', 'summary', 'sectors'].includes(App.route())) App.render(); });
 }
-function ivMethodGuide() {
-  const a = INTRINSIC.data?.assumptions || { dcf_growth: .05, terminal_growth: .025, discount_rate: .09, years: 5, graham_multiplier: 22.5, ddm_required_return: .09 };
-  return h('div', { class: 'iv-guide' },
-    h('article', { class: 'iv-guide-item' }, h('b', null, tr('DCF · free cash flow')),
-      h('p', null, tr('Five-year DCF: latest annual (operating cash flow − capital expenditure) per diluted share, grown for five years and discounted; includes a terminal value.')),
-      h('small', null, tr('Assumptions') + ': ' + nf(a.dcf_growth * 100, 1) + '% ' + tr('growth') + ' · ' + nf(a.discount_rate * 100, 1) + '% ' + tr('discount rate') + ' · ' + nf(a.terminal_growth * 100, 1) + '% ' + tr('terminal growth'))),
-    h('article', { class: 'iv-guide-item' }, h('b', null, tr('Graham Number')),
-      h('p', null, '√(' + nf(a.graham_multiplier, 1) + ' × ' + tr('diluted EPS') + ' × ' + tr('book value per share') + '). Positive annual EPS and common equity are required.'),
-      h('small', null, tr('Filing-derived annual inputs; unavailable when missing or non-positive.'))),
-    h('article', { class: 'iv-guide-item' }, h('b', null, tr('Gordon-growth DDM')),
-      h('p', null, tr('Next annual dividend per share ÷ (required return − perpetual dividend growth).')),
-      h('small', null, tr('Assumptions') + ': ' + nf(a.ddm_required_return * 100, 1) + '% ' + tr('required return') + ' · ' + nf(a.terminal_growth * 100, 1) + '% ' + tr('dividend growth'))));
+const valOf = symbol => ivLookup(INTRINSIC.data?.stocks, symbol);
+const valPrice = (symbol, fallback) => { const live = LIVE.prices?.[symbol]; return num(live) && live > 0 ? live : fallback; };
+/* the median of the usable estimates against the current price, for Verdict and Sectors */
+function ivEstimates(stock) {
+  const v = valOf(stock.symbol); if (!v) return { n: 0, list: [] };
+  const price = valPrice(stock.symbol, v.price || stock.price);
+  const list = [...v.methods.filter(m => m.status === 'ok' && m.fit !== 'poor').map(m => ({ source: valLabel(m.key), value: m.value })),
+    ...v.sources.filter(s => s.status === 'ok').map(s => ({ source: valLabel(s.key), value: s.value }))].sort((a, b) => a.value - b.value);
+  return { price, list, n: list.length, median: v.median, upside: v.median && price ? v.median / price - 1 : null };
+}
+const VAL_INFO = {
+  dcf: ['Discounted cash flow', 'What the company is worth today if it keeps producing free cash flow: five years of growth on today\'s free cash flow per share, then a perpetual value, all discounted at the required return.'],
+  graham: ['Graham Number', 'Benjamin Graham\'s ceiling for a defensive investor: the price at which P/E × P/B equals 22.5 (P/E 15 × P/B 1.5).'],
+  ddm: ['Dividend discount (Gordon)', 'The value of all future dividends, growing at a steady rate, discounted at the required return. Only for companies that pay a dividend.'],
+  epv: ['Earnings power value', 'Bruce Greenwald\'s no-growth value: today\'s after-tax operating profit as a perpetuity, plus cash, minus debt. It shows what the business is worth without any growth.'],
+  lynch: ['Peter Lynch fair value', 'Peter Lynch\'s rule that a fairly priced stock has a P/E equal to its earnings growth rate (plus its dividend yield).'],
+  pe: ['Peer P/E multiple', 'What the company would cost at the median forward P/E of comparable companies (same sector; REITs among REITs).'],
+  evEbitda: ['Peer EV/EBITDA multiple', 'What the shares would be worth if the whole business were valued at the median EV/EBITDA of comparable companies, after debt and cash.'],
+  residual: ['Residual income (justified P/B)', 'Book value scaled by how much the company earns on it above the required return: P/B = (ROE − g) / (r − g). Suited to banks and insurers.'],
+  equityRank: ['Equity Rank', 'Blend of 8–15 valuation models recomputed after every market close (equity-rank.com).'],
+  zyberno: ['Zyberno', 'Intrinsic value from SEC filings (owner earnings and growth), published monthly under CC BY 4.0; converted here to a per-share figure with implied shares, so approximate.'],
+  slate: ['Slate Finch', 'Fair value from a published formula applied to SEC filings, with a likely range (slatefinch.app). The provider withholds a value when its checks fail.'],
+  sweet: ['SweetValueLab', 'Median of several models (DCF, multiples, sector-specific models for banks and REITs) from public filings, nightly, CC BY 4.0 (sweetvaluelab.com).'],
+  fvc: ['Fair Value Calculator', 'Fair value from multiple models, shown with the provider\'s own badge (fairvalue-calculator.com).']
+};
+const VAL_LINKS = { equityRank: 'https://www.equity-rank.com/', zyberno: 'https://zyberno.com/brina-gap/', slate: 'https://www.slatefinch.app/', sweet: 'https://sweetvaluelab.com/stocks', fvc: 'https://www.fairvalue-calculator.com/' };
+const valLabel = key => tr((VAL_INFO[key] || [key])[0]);
+const VAL_INPUT = { freeCashFlow: 'Free cash flow', shares: 'Shares', fcfPerShare: 'FCF per share', eps: 'EPS', bookValuePerShare: 'Book value per share', annualDividend: 'Annual dividend',
+  payoutRatio: 'Payout ratio', operatingProfit: 'Operating profit', cash: 'Cash', debt: 'Debt', growth: 'Growth', dividendYield: 'Dividend yield', forwardEps: 'Forward EPS',
+  peerMedianPE: 'Peer median P/E', ebitda: 'EBITDA', peerMedianEvEbitda: 'Peer median EV/EBITDA', roe: 'Return on equity', discountRate: 'Discount rate',
+  terminalGrowth: 'Terminal growth', years: 'Years', beta: 'Beta', multiplier: 'Multiplier', dividendGrowth: 'Dividend growth', requiredReturn: 'Required return',
+  taxRate: 'Tax rate', fairPE: 'Fair P/E' };
+const VAL_PCT = new Set(['growth', 'dividendYield', 'roe', 'discountRate', 'terminalGrowth', 'dividendGrowth', 'requiredReturn', 'taxRate', 'payoutRatio']);
+function valFmt(key, v) {
+  if (!num(v)) return '—';
+  if (VAL_PCT.has(key)) return nf(v * 100, 1) + '%';
+  if (['freeCashFlow', 'operatingProfit', 'cash', 'debt', 'ebitda'].includes(key)) return fundBig(v);
+  if (key === 'shares') return nf(v / 1e6, 1) + ' M';
+  if (['eps', 'bookValuePerShare', 'annualDividend', 'forwardEps', 'fcfPerShare'].includes(key)) return usd(v);
+  return nf(v, 2);
+}
+const VAL_FIT = { good: ['✓', 'Suited to this industry'], limited: ['⚠', 'Limited fit for this industry'], poor: ['✕', 'Not suited to this industry'] };
+/* the full explanation of one cell, as tooltip HTML */
+function valTip(m, stock) {
+  const [label, about] = VAL_INFO[m.key] || [m.key, ''], rows = [];
+  const price = valPrice(stock.symbol, stock.v.price);
+  if (m.status === 'ok') {
+    rows.push(tipRow('Fair value', '<b>' + esc(usd1(m.value)) + '</b>'));
+    if (num(price)) rows.push(tipRow('vs price', esc(signedPct(m.value / price - 1)) + ' (' + esc(usd1(price)) + ')'));
+    if (m.low && m.high) rows.push(tipRow('Range', esc(usd1(m.low) + ' – ' + usd1(m.high))));
+  } else rows.push(tipRow(m.status === 'na' ? 'Not applicable' : 'Missing data', esc(tr(m.reason || ''))));
+  if (m.formula) rows.push(tipRow('Formula', esc(m.formula)));
+  Object.entries(m.inputs || {}).forEach(([k, v]) => rows.push(tipRow(VAL_INPUT[k] || k, esc(valFmt(k, v)))));
+  Object.entries(m.assumptions || {}).forEach(([k, v]) => rows.push(tipRow((VAL_INPUT[k] || k) + ' (' + tr('assumption') + ')', esc(valFmt(k, v)))));
+  if (m.asOf) rows.push(tipRow('Source date', esc(String(m.asOf).slice(0, 10))));
+  if (m.note) rows.push(tipRow('Note', esc(tr(m.note))));
+  if (m.fit) rows.push(tipRow(VAL_FIT[m.fit][1], esc(m.fitReason ? tr(m.fitReason) : tr('Commonly used for companies like this one.'))));
+  if (m.status === 'ok') rows.push(tipRow('In the median', m.fit === 'poor' ? tr('No — not suited to this industry') : tr('Yes')));
+  return tipHtml(label, rows, about);
+}
+function valCell(m, stock) {
+  const price = valPrice(stock.symbol, stock.v.price);
+  const body = m.status === 'ok'
+    ? [h('b', { class: 'iv-value notr' }, usd1(m.value)), num(price) ? h('small', { class: 'iv-delta notr ' + plClass(m.value / price - 1) }, signedPct(m.value / price - 1)) : null]
+    : [h('span', { class: 'iv-state' }, m.status === 'na' ? tr('Not applicable') : tr('No data'))];
+  const fit = m.fit ? h('small', { class: 'iv-fit fit-' + m.fit }, VAL_FIT[m.fit][0] + ' ' + tr(m.fit === 'good' ? 'suited' : m.fit === 'limited' ? 'limited fit' : 'not suited')) : null;
+  return h('td', { class: 'iv-cell iv-' + m.status + (m.fit === 'poor' ? ' iv-poor' : '') }, hoverTip(h('div', { class: 'has-tip' }, ...body, fit), () => valTip(m, stock)));
+}
+function valFvcCell(symbol) {
+  const url = FVC_EMBED.replace('{}', encodeURIComponent(symbol)), page = 'https://www.fairvalue-calculator.com/stock/' + encodeURIComponent(symbol) + '?utm_source=embed&utm_medium=badge';
+  const image = h('img', { class: 'iv-fvc', src: url, alt: tr('Fair Value Calculator per-share estimate for') + ' ' + symbol, loading: 'lazy', referrerpolicy: 'no-referrer' });
+  image.addEventListener('error', () => image.replaceWith(h('span', { class: 'iv-state' }, tr('No data'))), { once: true });
+  return h('td', { class: 'iv-cell' }, hoverTip(h('div', { class: 'has-tip' }, ivLink(image, page, 'iv-fvc-link')), () => tipHtml(VAL_INFO.fvc[0], [tipRow('Source', 'fairvalue-calculator.com')], VAL_INFO.fvc[1])));
+}
+function valMedianCell(stock) {
+  const v = stock.v, price = valPrice(stock.symbol, v.price);
+  if (!v.median) return h('td', null, h('span', { class: 'iv-state' }, tr('No data')));
+  const up = num(price) ? v.median / price - 1 : null;
+  return h('td', { class: 'iv-cell iv-median' }, hoverTip(h('div', { class: 'has-tip' }, h('b', { class: 'iv-value notr' }, usd1(v.median)), h('small', { class: 'iv-delta notr ' + plClass(up) }, signedPct(up)),
+    h('small', { class: 'iv-fit notr' }, v.count + ' ' + tr('estimates'))),
+    () => tipHtml('Median fair value', [tipRow('Median', esc(usd1(v.median))), tipRow('Range of estimates', esc(usd1(v.low) + ' – ' + usd1(v.high))), tipRow('Estimates used', String(v.count)),
+      tipRow('vs price', esc(signedPct(up)))], 'The middle of every calculated method that suits this industry and every external source with a value. A median is used so one extreme model cannot move it.')));
+}
+function valDetail(stock) {
+  const v = stock.v, all = [...v.sources.map(s => ({ ...s, kind: 'source' })), ...v.methods.map(m => ({ ...m, kind: 'method' }))];
+  return h('div', { class: 'val-detail' }, all.map(m => {
+    const holder = h('div', { class: 'val-item iv-' + m.status });
+    holder.innerHTML = valTip(m, stock);
+    return holder;
+  }));
 }
 Views.intrinsic = () => {
-  if (!INTRINSIC.loaded) ivLoad();
-  const selectionRows = selection(), top = selectionRows ? ranked(selectionRows).slice(0, 10) : [];
-  const data = INTRINSIC.data || {}, sources = data.sources || {}, methodsStatus = sources.sec?.status;
-  const alert = methodsStatus === 'contact_required'
-    ? h('div', { class: 'iv-alert' }, h('b', null, tr('SEC filings are not connected yet.')),
-      ' ', tr('DCF and Graham Number use Zyberno trailing-twelve-month values (shares and book value are implied, so approximate); the dividend model needs SEC filings. Add SEC_CONTACT_EMAIL as a GitHub Actions secret to use filings; no email is published.'))
-    : null;
-  const body = INTRINSIC.error ? h('div', { class: 'empty' }, tr('Intrinsic-value data is unavailable.'), ' ', INTRINSIC.error)
-    : !INTRINSIC.loaded ? h('div', { class: 'empty' }, tr('Loading verified source data…'))
-      : !selectionRows ? h('div', { class: 'empty' }, tr('Correct the active filters before viewing the Top 10.'))
-        : !top.length ? h('div', { class: 'empty' }, tr('No ranked stocks in the active selection.'))
-          : h('div', { class: 'iv-table-wrap' }, h('table', { class: 'iv-table' },
-            h('thead', null,
-              h('tr', { class: 'iv-groups' }, h('th', { rowspan: 2 }, tr('Stock')), h('th', { rowspan: 2 }, tr('Live price')),
-                h('th', { colspan: 3 }, tr('External estimates')), h('th', { colspan: 3 }, tr('Calculated methods')), h('th', { rowspan: 2 }, tr('Median'))),
-              h('tr', null, h('th', null, ivLink('Equity Rank', 'https://www.equity-rank.com/', 'iv-head-link')),
-                h('th', null, ivLink('Fair Value Calculator', 'https://www.fairvalue-calculator.com/', 'iv-head-link')),
-                h('th', null, ivLink('Zyberno · approx.', 'https://zyberno.com/', 'iv-head-link')),
-                h('th', null, tr('DCF · FCF')), h('th', null, tr('Graham Number')), h('th', null, tr('Gordon DDM')))),
-            h('tbody', null, top.map(stock => {
-              const sec = ivLookup(sources.sec?.rows, stock.symbol) || {}, ttm = ivLookup(sources.ttm?.rows, stock.symbol) || {};   // SEC filings first, trailing-twelve-month values otherwise
-              return h('tr', null,
-                h('td', null, h('b', { class: 'iv-ticker notr' }, stock.symbol), h('small', { class: 'iv-company' }, stock.company)),
-                h('td', null, ivLivePrice(stock)),
-                ivSourceCell(sources.equityRank, stock.symbol, 'equityRank'), ivFvcCell(stock.symbol, data.fvcEmbedUrl),
-                ivSourceCell(sources.zyberno, stock.symbol, 'zyberno'),
-                ivMethodCell(sec.dcf?.value ? sec.dcf : ttm.dcf || sec.dcf, methodsStatus), ivMethodCell(sec.graham?.value ? sec.graham : ttm.graham || sec.graham, methodsStatus), ivMethodCell(sec.ddm?.value ? sec.ddm : ttm.ddm || sec.ddm, methodsStatus),
-                ivMedianCell(ivEstimates(stock, sources)));
-            }))));
-  return h('div', null,
-    card('Fair value', 'Active filters and ranking determine these stocks. Estimates are not price targets or investment advice.',
-      h('div', null, alert, body,
-        h('p', { class: 'iv-disclaimer' }, tr('External data is attributed and dated. Zyberno per-share value is approximate; source company value is divided by implied shares. Missing data is never replaced with an estimate.'))), null, 'c12'),
-    card('The three methods', 'SEC Company Facts · annual filing inputs · assumptions shown with each result', ivMethodGuide(), null, 'c12'),
-    card('Sources used', null, h('div', { class: 'iv-attribution' },
-      h('span', null, ivLink('Equity Rank', 'https://www.equity-rank.com/') , ' · public blended model values'),
-      h('span', null, ivLink('Fair Value Calculator', 'https://www.fairvalue-calculator.com/') , ' · official per-ticker SVG embed with provider attribution'),
-      h('span', null, ivLink('Zyberno', 'https://zyberno.com/brina-gap/') , ' · CC BY 4.0 monthly cross-section; per-share conversion disclosed'),
-      h('span', null, ivLink('SEC EDGAR Company Facts', 'https://www.sec.gov/edgar/sec-api-documentation') , ' · filing-derived inputs')),
-      null, 'c12'));
+  ivLoad();
+  const heading = card('Fair value', 'For the current Top 10: eight calculated methods and four external sources (plus the Fair Value Calculator badge). Hover any cell to see the formula, the inputs and assumptions, whether data was missing or the method does not apply, and whether the method suits this industry. Methods that do not suit the industry stay visible but are left out of the median. Estimates, not price targets or investment advice.', null, null, 'c12');
+  if (INTRINSIC.error && !INTRINSIC.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, INTRINSIC.error)));
+  if (!INTRINSIC.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading…'))));
+  const selected = selection(), top = selected ? ranked(selected).slice(0, 10) : [];
+  if (!selected) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Correct the active filters before viewing the Top 10.'))));
+  const symbols = top.map(r => r.symbol);
+  if (VAL.extra && !symbols.includes(VAL.extra)) symbols.push(VAL.extra);
+  const D = INTRINSIC.data, srcKeys = D.sources.map(s => s.key).filter(k => k !== 'fvc'), methodKeys = D.methods.map(m => m.key);
+  const head = h('thead', null,
+    h('tr', { class: 'iv-groups' }, h('th', { rowspan: 2 }, tr('Stock')), h('th', { rowspan: 2 }, tr('Price')), h('th', { colspan: srcKeys.length + 1 }, tr('External sources')),
+      h('th', { colspan: methodKeys.length }, tr('Calculated methods')), h('th', { rowspan: 2 }, tr('Median'))),
+    h('tr', null, ...srcKeys.map(k => h('th', null, ivLink(valLabel(k), VAL_LINKS[k], 'iv-head-link'))), h('th', null, ivLink(valLabel('fvc'), VAL_LINKS.fvc, 'iv-head-link')),
+      ...methodKeys.map(k => h('th', { title: tr(VAL_INFO[k][1]) }, valLabel(k)))));
+  const body = symbols.map(sym => {
+    const v = valOf(sym), stock = universe().find(x => x.symbol === sym) || { symbol: sym, company: '', price: null }, open = VAL.open === sym;
+    if (!v) return h('tr', null, h('td', null, h('b', { class: 'notr' }, sym)), h('td', { colspan: srcKeys.length + methodKeys.length + 3, class: 'muted' }, tr('No fair value data for this stock.')));
+    const s = { ...stock, v }, price = valPrice(sym, v.price || stock.price);
+    return h('tr', { class: 'company-row' + (open ? ' selected' : ''), onclick: e => { if (e.target.closest('a')) return; VAL.open = open ? null : sym; App.render(); } },
+      h('td', null, h('div', { class: 'sym-cell' }, logoEl(sym, 22), h('div', null, h('b', { class: 'notr' }, sym), h('div', { class: 'muted small notr' }, (stock.company || '') + (top.some(r => r.symbol === sym) ? '' : ' · ' + tr('added'))),
+        h('div', { class: 'muted small notr' }, v.industry || v.sector || '')))),
+      h('td', { class: 'notr' }, h('b', null, usd1(price)), h('small', { class: 'iv-fit' }, num(LIVE.prices?.[sym]) ? tr('Live') : tr('Report price'))),
+      ...srcKeys.map(k => valCell(v.sources.find(x => x.key === k) || { key: k, status: 'missing', reason: 'Not covered.' }, s)), valFvcCell(sym),
+      ...methodKeys.map(k => valCell(v.methods.find(x => x.key === k), s)), valMedianCell(s));
+  });
+  const options = universe().map(r => r.symbol).filter(s => valOf(s)).sort();
+  const picker = h('div', { class: 'row' }, h('span', { class: 'muted small' }, tr('Analyse another stock:')),
+    selectEl([['', '—'], ...options.map(s => [s, s])], VAL.extra, val => { VAL.extra = val; VAL.open = val || VAL.open; App.render(); }, 'sel csel'),
+    h('span', { class: 'sp' }), h('span', { class: 'muted small notr' }, tr('Computed') + ' ' + new Date(D.at).toLocaleString(I18N.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
+  const legend = h('div', { class: 'iv-legend' }, ...Object.entries(VAL_FIT).map(([k, [icon_, text]]) => h('span', { class: 'iv-fit fit-' + k }, icon_ + ' ' + tr(text))),
+    h('span', { class: 'iv-state' }, tr('No data') + ' = ' + tr('an input is missing')), h('span', { class: 'iv-state' }, tr('Not applicable') + ' = ' + tr('the method does not apply to this company (for example no dividend)')));
+  const openStock = VAL.open && symbols.includes(VAL.open) && valOf(VAL.open) ? VAL.open : null;
+  const detail = openStock ? card(openStock + ' · ' + tr('every estimate explained'), tr('The same explanations as on hover, all at once; click the row again to close.'),
+    valDetail({ ...(universe().find(x => x.symbol === openStock) || { symbol: openStock }), v: valOf(openStock) }), null, 'c12') : null;
+  const a = D.assumptions;
+  const guide = card('Assumptions', null, h('p', { class: 'muted small' }, tr('Required return = risk-free rate') + ' ' + nf(a.riskFree * 100, 1) + '% + beta × ' + nf(a.equityPremium * 100, 1) + '% ' +
+    tr('(held between 7% and 13%); terminal growth') + ' ' + nf(a.terminalGrowth * 100, 1) + '%; ' + tr('tax rate') + ' ' + nf(a.taxRate * 100, 0) + '%; ' +
+    tr('DCF growth = revenue growth held between 0% and 12% for five years. Company data: Yahoo Finance statistics. These are baseline choices, not forecasts.')), null, 'c12');
+  const credits = h('p', { class: 'muted small mt' }, tr('Sources:'), ' ', ivLink('Equity Rank', VAL_LINKS.equityRank), ' · ', ivLink('Zyberno', VAL_LINKS.zyberno), ' (CC BY 4.0) · ',
+    ivLink('Slate Finch', VAL_LINKS.slate), ' · ', ivLink('SweetValueLab', VAL_LINKS.sweet), ' (CC BY 4.0) · ', ivLink('Fair Value Calculator', VAL_LINKS.fvc), ' · Yahoo Finance. ',
+    D.external?.slate?.notice ? tr('Slate Finch:') + ' ' + D.external.slate.notice + ' ' : '', tr('Not investment advice.'));
+  return h('div', null, heading, card(null, null, h('div', null, picker, legend, h('div', { class: 'tbl-wrap' }, h('table', { class: 'iv-table' }, head, h('tbody', null, body))),
+    openStock ? null : h('p', { class: 'muted small' }, tr('Click a stock to read every estimate explained.'))), null, 'c12'), detail, guide, credits);
 };
