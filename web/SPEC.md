@@ -275,6 +275,32 @@ not independent (the programs read the same market data), thresholds are baselin
 The Fair value page also shows the median of the positive estimates with its range and the gap to the price. Pages that depend on the
 market history or on the valuation snapshot re-render when those finish loading (a page opened first used to stay on "Loading…").
 
+## Signals
+
+- Page `signals` (menu child of Top 10, after Verdict): for the current Top 10 (same filters and ranking), 27 trading and
+  investing methods plus the funnel score, computed once a day by `signals.py` into `data/signals.json` (route `/api/signals`).
+- **Stocks covered:** every preset's Top 10 of the latest `top10_history` day, then the filtered list, at most 80
+  (`signals.target_symbols`). A stock outside that set (custom filters) shows "Not analysed in today's run".
+- **Market regime:** SPY vs its 200-day average, VIX vs VIX3M, high-yield spread (FRED BAMLH0A0HYM2) vs its 6-month average
+  and 1-month change, share of S&P 500 stocks above their 200-day average (from `history.json`), CFTC leveraged-fund
+  positioning in E-mini S&P futures (3-year percentile). Each +1 / 0 / −1; ≥ +2 Risk-on (1% risk per trade), ≤ −2 Risk-off
+  (no new longs), otherwise Neutral (0.5%); fewer than 3 known indicators = Unknown.
+- **Funnel:** Quality 30% (five checks from SEC XBRL; only computable checks count, at least three, scaled to five),
+  Positioning 25% (Form 4 insider buys/sells, Yahoo short interest, put/call open interest), Timing 25% (50/200-day
+  averages, breakout or 50-day pullback, volume, RSI), Sector 20% (sector ETF rank by 3- and 6-month return vs SPY).
+  BUY ≥ +1.2, WATCH ≥ +0.5. Overrides: good quality with bad timing = WATCH; Risk-off, unknown quality, an Altman
+  distress flag or earnings within 14 days cap BUY at WATCH; Beneish M > −1.78 = AVOID.
+- **Sources:** Yahoo Finance (prices, short interest, option chains, earnings calendar), SEC EDGAR (companyfacts,
+  submissions, Form 4, 10-K text, 8-K item 2.02 for the earnings release time), FRED public CSV, CFTC Socrata API,
+  ApeWisdom (Reddit mentions). SEC parts need `SEC_CONTACT_EMAIL` (repository secret); without it they show NO DATA.
+  Yahoo extras are fetched one stock at a time (parallel requests get HTTP 429/401). A full run for ~50 stocks takes about
+  2–3 minutes; 10-K comparisons are cached in the published file by accession (at most 12 new per run).
+- **Refresh:** `build_site.py --refresh` reuses the published file while it is under 20 hours old and covers every target
+  symbol; otherwise it recomputes. Method texts are English data (not translated); names, labels and conclusions are UI text.
+- **Not available free, by decision shown as N/A:** Google Trends (no server API), IV rank (replaced by ATM IV ÷ 30-day
+  realized volatility), 13F holder changes, BVB (S&P 500 only), ML ranking (not built yet).
+- The Verdict page has a Signals column: BUY +1, WATCH 0, PASS/AVOID −1.
+
 ## Technical analysis
 
 The Technical analysis page (`web/technical.js`) shows the current Top 10 (and any other stock picked) from `data/technical.json`, which

@@ -354,3 +354,10 @@ a.btn{text-decoration:none}
 .fav-col{width:34px;text-align:center}.fav-star{border:0;background:transparent;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;padding:2px}.fav-star.on{color:#f5b301}.fav-star:hover{transform:scale(1.15)}
 .sc-bar{display:flex;flex-direction:column;gap:10px}.sc-quick{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .sc-field{display:flex;flex-direction:column;gap:3px}.sc-field small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.sc-num{width:100%}.sc-check{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+
+/* Signals page */
+.tech-verdict.agent-na{background:color-mix(in srgb,var(--muted, #888) 14%,transparent);opacity:.8}
+.sig-list{margin:.4rem 0 0;padding-left:1.1rem;font-size:.86rem;line-height:1.45}.sig-list li{margin:.15rem 0}
+.sig-list.sig-for li::marker{color:var(--good)}.sig-list.sig-against li::marker{color:var(--bad)}
+.sig-methods td:nth-child(4){min-width:280px;max-width:640px;white-space:normal}.sig-methods td:nth-child(3){white-space:nowrap}
+.sig-tbl td{vertical-align:middle}

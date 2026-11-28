@@ -20,6 +20,7 @@ import dashboard
 import intrinsic_value
 import technical
 import fundamentals
+import signals
 import valuation
 
 BASE = Path(__file__).resolve().parent
@@ -227,7 +228,19 @@ def build(refresh=False):
         write_json('valuation.json', val)
 
     import top10_history
-    write_json('top10_history.json', top10_history.load())
+    top10_days = top10_history.load()
+    write_json('top10_history.json', top10_days)
+
+    # signals: 27 methods + the funnel score for every stock the Top 10 can show; once a day (several minutes: SEC, Yahoo, FRED, CFTC)
+    sig = previous('signals.json') if refresh else None
+    targets = set(signals.target_symbols(data, top10_days))
+    if refresh and not (sig and sig.get('schema') == signals.SCHEMA and fresh(sig, 20) and targets <= set(sig.get('symbols') or [])):
+        try:
+            sig = signals.build(data, hist, top10_days, previous=sig, contact_email=os.environ.get('SEC_CONTACT_EMAIL', '').strip() or None)
+        except Exception as exc:
+            print('signals:', exc)
+    if sig:
+        write_json('signals.json', sig)
     pc_results = BASE / 'Output' / 'pc_analysis.json'   # answers of the programs on the owner's PC, kept in the platform
     if pc_results.is_file():
         try:

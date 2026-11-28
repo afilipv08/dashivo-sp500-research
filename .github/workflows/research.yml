@@ -58,6 +58,8 @@ jobs:
           for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
       - name: Build the site
         if: steps.gate.outputs.run == 'true'
+        env:
+          SEC_CONTACT_EMAIL: ${{ secrets.SEC_CONTACT_EMAIL }}
         run: python build_site.py --refresh
       - uses: actions/configure-pages@v5
         if: steps.gate.outputs.run == 'true'

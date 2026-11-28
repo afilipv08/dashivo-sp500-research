@@ -9,6 +9,7 @@ Output/live_prices.json
 Output/crypto.json
 Output/ratings_cache.json
 Output/history.json
+Output/signals.json
 Output/.checkpoint_*
 Output/eroare_*.txt
 site/

@@ -486,6 +486,11 @@ def make_server(port=8765, lan=False):
                     self.reply(200, site_data('fundamentals.json', 'stocks'))
                 except Exception:
                     self.reply(503, {'error': 'Fundamental analysis data is unavailable right now.'})
+            elif self.path == '/api/signals':
+                try:
+                    self.reply(200, site_data('signals.json', 'stocks'))
+                except Exception:
+                    self.reply(503, {'error': 'Signals data is unavailable right now.'})
             elif self.path == '/api/intrinsic-values':
                 try:
                     self.reply(200, intrinsic_values())
