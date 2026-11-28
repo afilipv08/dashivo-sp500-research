@@ -361,3 +361,8 @@ a.btn{text-decoration:none}
 .sig-list.sig-for li::marker{color:var(--good)}.sig-list.sig-against li::marker{color:var(--bad)}
 .sig-methods td:nth-child(4){min-width:280px;max-width:640px;white-space:normal}.sig-methods td:nth-child(3){white-space:nowrap}
 .sig-tbl td{vertical-align:middle}
+.ex{cursor:help;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,currentColor 45%,transparent)}
+th.ex,.tv-vote.ex,tr.ex{text-decoration:none}th.ex{border-bottom:1px dotted color-mix(in srgb,currentColor 45%,transparent)}
+.ex-banner{margin:0 0 10px}.ex-banner.bad{border-color:var(--bad)}.ex-banner.warn{border-color:var(--warn)}.ex-howto{margin:0 0 12px;line-height:1.5;max-width:980px}
+.ex-example{margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--tint1);font-size:.88rem;line-height:1.5}
+.iv-explain td{vertical-align:top;white-space:normal;font-size:.82rem;line-height:1.4;max-width:340px}.iv-ref{margin-top:6px;font-size:.8rem}

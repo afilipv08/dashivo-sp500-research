@@ -15,7 +15,7 @@ CSS_FILES = ('dashivo/styles.css', 'dashivo/themes.css', 'dashivo/shell.css', 'w
 # Order matters: helpers -> UI -> app config + wording -> shared i18n/themes/shell -> app -> tour.
 JS_FILES = ('dashivo/core.js', 'dashivo/ui.js', 'web/config.js', 'web/vendor/qrcode.js', 'web/i18n_sp500.js', 'dashivo/i18n_brand.js',
             'dashivo/i18n.js', 'dashivo/themes.js', 'dashivo/shell.js', 'web/data.js', 'web/visuals.js', 'web/views.js',
-            'web/portfolio.js', 'web/history.js', 'web/simulations.js', 'web/calendar.js', 'web/technical.js', 'web/intrinsic.js', 'web/fundamental.js', 'web/signals.js', 'web/agents.js', 'web/backtest.js', 'web/summary.js', 'web/screener.js', 'web/sources.js', 'web/etoro.js', 'web/ai.js', 'web/crypto.js', 'web/static.js', 'web/app.js', 'dashivo/tour.js', 'web/tour_steps.js')
+            'web/portfolio.js', 'web/history.js', 'web/simulations.js', 'web/calendar.js', 'web/explain.js', 'web/technical.js', 'web/intrinsic.js', 'web/fundamental.js', 'web/signals.js', 'web/agents.js', 'web/backtest.js', 'web/summary.js', 'web/screener.js', 'web/sources.js', 'web/etoro.js', 'web/ai.js', 'web/crypto.js', 'web/static.js', 'web/app.js', 'dashivo/tour.js', 'web/tour_steps.js')
 
 
 def number(value):

@@ -404,3 +404,8 @@ approved access and reuse rights become available, reconsider this boundary befo
 - Translations other than Romanian were machine-authored; native proofreading is pending
   (unconfirmed quality).
 - Fonts load from Google Fonts with a system fallback; the page otherwise works offline.
+
+## Explanations on hover (Fundamental, Signals, Fair value)
+- `web/explain.js` holds the plain-language texts (`FUND_INFO`, `FUND_PILLAR_INFO`, `SIG_INFO`) and the helpers `exHover`, `exTip`, `exRow`, `exBanner`. `X(en, ro)` registers a Romanian translation (other languages fall back to English) and also works for strings first used while rendering.
+- Every figure on these pages is dotted-underlined and opens a tooltip with: what it shows, the calculation (with the stock's own numbers), and the reading in words. Missing data is flagged (banner + "Data" column) and never estimated: Fundamental coverage under 60% = little data, fewer than 3 pillars = no score; Signals with no SEC fundamentals or 6+ methods without data = not enough data.
+- Fair value: each calculated method has a definition, a worked calculation with the stock's numbers (`valWorked`), a reference link, and a "Methods explained" card; external sources link to the provider.
