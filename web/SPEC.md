@@ -292,15 +292,18 @@ recomputed at most twice a day and served locally by `/api/technical`. The brows
 
 ## Fundamental analysis
 
-The Fundamental analysis page (`web/fundamental.js`) reuses the attributed valuation snapshot (`intrinsic_values.json`), so it
-adds no source: Zyberno (CC BY 4.0) supplies trailing-twelve-month revenue, net income, free cash flow, EPS, ROE, ROIC and
-market cap, and Equity Rank the Fundamental Strength score/grade and model counts. Ratios (P/E on the live or report
-price, P/S, net margin, FCF yield) are computed in the browser; missing inputs stay blank. Six rules vote +1/0/−1: net margin
-(>10% / <0%), ROE (>15% / <5%), ROIC (>10% / <6%), FCF yield (>4% / <0%), trailing P/E (≤25 / >40 or a loss) and Fundamental
-Strength (≥60 / <40); the verdict is strong at +3 or more, weak at −3 or less, otherwise mixed, and needs at least four
-available rules. The thresholds are baseline choices, unconfirmed by the user, and source rows can lag the latest filings.
-The snapshot carries `schema` (`PAYLOAD_SCHEMA`), and a cache without the current schema is rebuilt, so new published fields
-do not wait for the 24-hour window.
+The Fundamental analysis page (`web/fundamental.js`) shows the current Top 10 (and any stock picked) from `data/fundamentals.json`, which
+`fundamentals.py` builds once a day for every stock (about 2–3 minutes) and the local server serves at `/api/fundamentals`.
+- **Sources**: Yahoo Finance company statistics (`Ticker.info`: margins, returns, growth, debt, liquidity, cash flows, P/E, PEG, EV/EBITDA,
+  P/S, P/B, dividends, analyst mean, beta), the Equity Rank public per-stock page (pillar scores, 3-year FCF growth, ROE and gross-margin
+  trends, last earnings surprises, next earnings date; attribution shown) and the Zyberno CC BY 4.0 row (ROIC).
+- **32 metrics in 7 pillars**: profitability, growth, financial health, valuation, cash flow and earnings quality, fundamental momentum,
+  shareholder returns. Each metric is **ranked within the stock's GICS sector** (direction-aware percentile, −1 worst … +1 best; the whole
+  universe when fewer than five peers have it), because absolute thresholds misjudge whole industries. Pillar = mean of its ranks; score =
+  mean of the pillars (at least three); Strong ≥ +0.35, Good ≥ +0.1, Weak ≤ −0.1, Very weak ≤ −0.35. Negative P/E, PEG, EV/EBITDA and P/B
+  are not valuations and are left out; dividend metrics count only for payers. The detail shows every metric with its sector median.
+- Other pages (Verdict, Sectors company detail) use this verdict through `fundVerdict()`. The thresholds are baseline choices, unconfirmed;
+  sources can lag the latest filings.
 
 ## AI agents (programs on the owner's PC)
 

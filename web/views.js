@@ -100,12 +100,12 @@ function companyVerdicts(r) {
   techLoad();
   const t = TECH.data ? techVerdict(r.symbol) : TECH.error ? null : undefined;
   const sources = INTRINSIC.data?.sources || {};
-  const f = INTRINSIC.loaded ? fundAnalyse(r, ivLookup(sources.zyberno?.rows, r.symbol), ivLookup(sources.equityRank?.rows, r.symbol)) : undefined;
+  fundLoad();
+  const f = FUND.data ? fundVerdict(r.symbol) : FUND.error ? null : undefined;
   const est = INTRINSIC.loaded ? ivEstimates(r, sources) : undefined;
   return h('div', { class: 'cv-grid' },
     t === undefined ? wait('Technical analysis') : !t ? none('Technical analysis') : chip('Technical analysis', t.vote, t.text, t.title),
-    f === undefined ? wait('Fundamentals') : !f || f.verdict === 'unknown' ? none('Fundamentals')
-      : chip('Fundamentals', f.verdict === 'strong' ? 1 : f.verdict === 'weak' ? -1 : 0, tr(FUND_LABELS[f.verdict]) + (f.pe ? ' · P/E ' + nf(f.pe, 1) : f.loss ? ' · ' + tr('Loss') : ''), tr(fundConclusion(f))),
+    f === undefined ? wait('Fundamental analysis') : !f ? none('Fundamental analysis') : chip('Fundamental analysis', f.vote, f.text, f.title),
     est === undefined ? wait('Fair value') : est.n < 2 ? none('Fair value')
       : chip('Fair value', est.upside >= .15 ? 1 : est.upside <= -.15 ? -1 : 0, usd1(est.median) + ' · ' + signedPct(est.upside), est.list.map(x => x.source + ' ' + usd1(x.value)).join(' · ')));
 }

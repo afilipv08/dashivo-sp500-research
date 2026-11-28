@@ -69,6 +69,31 @@ def intrinsic_values():
         return data
 
 
+SITE_DATA_CACHE = {}
+SITE_DATA_LOCK = threading.Lock()
+
+
+def site_data(name, key):
+    """A data file the site build computes (local site/ copy first, else the published one), cached for 30 minutes."""
+    with SITE_DATA_LOCK:
+        cached = SITE_DATA_CACHE.get(name)
+        if cached and time.monotonic() - cached[1] < 1800:
+            return cached[0]
+        data = None
+        try:
+            candidate = json.loads((BASE / 'site' / 'data' / name).read_text(encoding='utf-8'))
+            if isinstance(candidate.get(key), dict):
+                data = candidate
+        except (OSError, ValueError):
+            pass
+        if data is None:
+            url = f'https://afilipv08.github.io/dashivo-sp500-research/data/{name}?t=' + str(int(time.time()))
+            with urllib.request.urlopen(url, timeout=30) as response:
+                data = json.loads(response.read())
+        SITE_DATA_CACHE[name] = (data, time.monotonic())
+        return data
+
+
 TECHNICAL_CACHE = {'data': None, 'fetched': 0.0}
 TECHNICAL_LOCK = threading.Lock()
 
@@ -439,6 +464,11 @@ def make_server(port=8765, lan=False):
                     self.reply(200, technical_data())
                 except Exception:
                     self.reply(503, {'error': 'Technical analysis data is unavailable right now.'})
+            elif self.path == '/api/fundamentals':
+                try:
+                    self.reply(200, site_data('fundamentals.json', 'stocks'))
+                except Exception:
+                    self.reply(503, {'error': 'Fundamental analysis data is unavailable right now.'})
             elif self.path == '/api/intrinsic-values':
                 try:
                     self.reply(200, intrinsic_values())

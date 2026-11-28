@@ -1,58 +1,94 @@
 'use strict';
-/* ================= Fundamental analysis of the current Top 10 from the attributed valuation snapshot ================= */
-const FUND_LABELS = { strong: 'Strong', mixed: 'Mixed', weak: 'Weak', unknown: 'Not enough data' };
-const fundRatio = (a, b) => num(a) && num(b) && b !== 0 ? a / b : null;
-/* Zyberno (CC BY 4.0) supplies trailing-twelve-month fundamentals, Equity Rank the Fundamental Strength composite;
-   every rule votes +1 / 0 / −1 or null (unavailable) and the verdict is the sum of the available votes */
-function fundAnalyse(stock, zyberno, rank) {
-  if (!zyberno && !rank) return null;
-  const price = num(LIVE.prices?.[stock.symbol]) && LIVE.prices[stock.symbol] > 0 ? LIVE.prices[stock.symbol] : stock.price;
-  const z = zyberno || {}, r = rank || {};
-  const pe = num(z.eps) && z.eps > 0 && num(price) ? price / z.eps : null, loss = num(z.eps) && z.eps <= 0;
-  const netMargin = fundRatio(z.netIncome, z.revenue), fcfMargin = fundRatio(z.fcf, z.revenue), fcfYield = fundRatio(z.fcf, z.marketCap), ps = fundRatio(z.marketCap, z.revenue);
-  const rules = [
-    { key: 'Net margin', vote: netMargin == null ? null : netMargin > .1 ? 1 : netMargin < 0 ? -1 : 0, detail: netMargin == null ? null : nf(netMargin * 100, 1) + '%' },
-    { key: 'Return on equity', vote: !num(z.roe) ? null : z.roe > 15 ? 1 : z.roe < 5 ? -1 : 0, detail: !num(z.roe) ? null : nf(z.roe, 1) + '%' },
-    { key: 'Return on invested capital', vote: !num(z.roic) ? null : z.roic > 10 ? 1 : z.roic < 6 ? -1 : 0, detail: !num(z.roic) ? null : nf(z.roic, 1) + '%' },
-    { key: 'Free cash flow yield', vote: fcfYield == null ? null : fcfYield > .04 ? 1 : fcfYield < 0 ? -1 : 0, detail: fcfYield == null ? null : nf(fcfYield * 100, 1) + '%' },
-    { key: 'P/E (trailing)', vote: loss ? -1 : pe == null ? null : pe <= 25 ? 1 : pe > 40 ? -1 : 0, detail: loss ? 'Negative earnings' : pe == null ? null : nf(pe, 1) },
-    { key: 'Fundamental Strength', vote: !num(r.strengthScore) ? null : r.strengthScore >= 60 ? 1 : r.strengthScore < 40 ? -1 : 0, detail: !num(r.strengthScore) ? null : nf(r.strengthScore, 0) + (r.strengthGrade ? ' · ' + r.strengthGrade : '') }
-  ];
-  const votes = rules.filter(x => x.vote != null), score = votes.reduce((a, x) => a + x.vote, 0);
-  const verdict = votes.length < 4 ? 'unknown' : score >= 3 ? 'strong' : score <= -3 ? 'weak' : 'mixed';
-  return { price, pe, loss, ps, netMargin, fcfMargin, fcfYield, marketCap: z.marketCap, roe: z.roe, roic: z.roic, growth: z.growth, strengthScore: r.strengthScore, strengthGrade: r.strengthGrade,
-    modelsAbove: r.modelsAbove, modelsTotal: r.modelsTotal, rules, score, available: votes.length, verdict, asOf: z.asOf || z.snapshotDate };
+/* ================= Fundamental analysis: 32 metrics in 7 pillars, each ranked within the stock's sector (fundamentals.py → data/fundamentals.json) ================= */
+const FUND = { data: null, loading: false, error: '', open: null, extra: '' };
+const FUND_CLASS = { Strong: 'good', Good: 'good', Neutral: 'mid', Weak: 'bad', 'Very weak': 'bad' };
+const FUND_PCT = new Set(['netMargin', 'operatingMargin', 'grossMargin', 'roe', 'roa', 'roic', 'revenueGrowth', 'earningsGrowth', 'forwardEpsGrowth', 'fcfCagr3y', 'netCashToCap', 'fcfYield', 'fcfMargin', 'surprise', 'dividendYield', 'payoutSafety']);
+const FUND_SCORE = new Set(['erHealth', 'erQuality', 'erProfitability', 'erCapital']);
+async function fundLoad() {
+  if (FUND.loading || FUND.data) return;
+  FUND.loading = true;
+  try { FUND.data = await runRequest('/api/fundamentals'); FUND.error = ''; } catch (e) { FUND.error = e.message || 'Fundamental analysis data is unavailable.'; }
+  FUND.loading = false;
+  if (['fundamental', 'summary', 'sectors'].includes(App.route())) App.render();
 }
-const fundConclusion = f => !f || f.verdict === 'unknown' ? 'Not enough fundamental data for a verdict.'
-  : f.verdict === 'strong' ? 'Most quality and valuation checks are favourable.' : f.verdict === 'weak' ? 'Most quality and valuation checks are unfavourable.' : 'Quality and valuation checks are mixed.';
+const fundOf = symbol => FUND.data?.stocks?.[symbol] || null;
+function fundValue(key, v) {
+  if (!num(v)) return '—';
+  if (FUND_PCT.has(key)) return (v < 0 ? '−' : '') + nf(Math.abs(v) * 100, 1) + '%';
+  if (FUND_SCORE.has(key)) return nf(v, 0) + ' / 100';
+  if (key === 'roeSlope' || key === 'grossMarginChange') return (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), 2) + ' pp';
+  return nf(v, 2) + (['debtToEquity', 'currentRatio', 'quickRatio', 'cashConversion'].includes(key) ? '×' : '');
+}
+const fundChip = cat => cat ? h('span', { class: 'tech-verdict agent-' + (FUND_CLASS[cat] || 'mid') }, tr(cat)) : h('span', { class: 'muted' }, '—');
+function fundSummary(f) {
+  const best = Object.entries(f.pillars).sort((a, b) => b[1] - a[1]), label = k => tr((FUND.data.pillars.find(p => p.key === k) || {}).label || k);
+  const parts = [tr('Score') + ' ' + techScore(f.score) + ' ' + tr('vs sector peers')];
+  if (best.length) parts.push(tr('strongest') + ': ' + label(best[0][0]));
+  if (best.length > 1) parts.push(tr('weakest') + ': ' + label(best.at(-1)[0]));
+  parts.push(tr('data coverage') + ' ' + nf(f.coverage * 100, 0) + '%');
+  return parts.join(' · ');
+}
+/* the short verdict other pages show (Verdict, Sectors) */
+function fundVerdict(symbol) {
+  const f = fundOf(symbol); if (!f || !f.category) return null;
+  return { vote: f.score >= 0.1 ? 1 : f.score <= -0.1 ? -1 : 0, text: tr(f.category) + (num(f.metrics.forwardPE) ? ' · P/E ' + nf(f.metrics.forwardPE, 1) : ''), title: fundSummary(f) };
+}
+function fundDetail(symbol) {
+  const f = fundOf(symbol);
+  if (!f) return h('div', { class: 'empty' }, tr('No fundamental data for this stock.'));
+  const med = FUND.data.sectorMedians[f.sector] || {};
+  const groups = FUND.data.pillars.map(p => {
+    const rows = FUND.data.metrics.filter(m => m.pillar === p.key);
+    return h('div', { class: 'tv-group' }, h('div', { class: 'tv-head' }, h('b', null, tr(p.label)), techGauge(f.pillars[p.key])),
+      h('table', { class: 'pf-tbl fd-tbl' }, h('thead', null, h('tr', null, [tr('Metric'), tr('Value'), tr('Sector median'), tr('Rank in sector')].map(x => h('th', null, x)))),
+        h('tbody', null, rows.map(m => h('tr', { class: f.metrics[m.key] == null ? 'fd-missing' : '' },
+          h('td', { title: m.higherIsBetter ? tr('Higher is better') : tr('Lower is better') }, tr(m.label), h('small', { class: 'muted' }, m.higherIsBetter ? ' ↑' : ' ↓')),
+          h('td', { class: 'notr' }, f.metrics[m.key] == null ? h('span', { class: 'muted' }, tr('no data')) : fundValue(m.key, f.metrics[m.key])),
+          h('td', { class: 'notr muted' }, fundValue(m.key, med[m.key])), h('td', null, f.ranks[m.key] != null ? techGauge(f.ranks[m.key]) : '—'))))));
+  });
+  const reports = (f.reports || []).filter(r => r.report_date);
+  return h('div', { class: 'tech-detail' },
+    h('p', { class: 'tech-sum-line' }, fundSummary(f), h('span', { class: 'muted small notr' }, ' · ' + f.sector + (f.industry ? ' / ' + f.industry : ''))),
+    h('div', { class: 'fd-facts' },
+      h('div', { class: 'tf' }, h('small', null, tr('Equity Rank strength')), h('b', { class: 'notr' }, num(f.erStrength) ? nf(f.erStrength, 0) + (f.erGrade ? ' · ' + f.erGrade : '') : '—')),
+      h('div', { class: 'tf' }, h('small', null, tr('Trailing P/E')), h('b', { class: 'notr' }, num(f.trailingPE) ? nf(f.trailingPE, 1) : '—')),
+      h('div', { class: 'tf' }, h('small', null, tr('Beta')), h('b', { class: 'notr' }, num(f.beta) ? nf(f.beta, 2) : '—')),
+      h('div', { class: 'tf' }, h('small', null, tr('Market cap')), h('b', { class: 'notr' }, fundBig(f.marketCap))),
+      h('div', { class: 'tf' }, h('small', null, tr('Next earnings')), h('b', { class: 'notr' }, f.nextEarnings || '—')),
+      h('div', { class: 'tf' }, h('small', null, tr('Last reports: EPS vs estimate')), h('b', { class: 'notr small' }, reports.length ? reports.map(r => r.report_date.slice(5) + ' ' + (num(r.surprise_pct) ? (r.surprise_pct >= 0 ? '+' : '') + nf(r.surprise_pct, 1) + '%' : '—')).join(' · ') : '—'))),
+    h('div', { class: 'tv-groups' }, groups));
+}
 const fundBig = v => num(v) ? '$' + (v >= 1e12 ? nf(v / 1e12, 2) + 'T' : v >= 1e9 ? nf(v / 1e9, 1) + 'B' : nf(v / 1e6, 0) + 'M') : '—';
-const fundTip = (symbol, f) => tipHtml(symbol + ' · ' + tr(FUND_LABELS[f.verdict]), f.rules.map(r => tipRow(r.key, r.vote == null ? tr('Unavailable') : (r.vote > 0 ? '▲ ' : r.vote < 0 ? '▼ ' : '● ') + esc(r.detail || ''))),
-  tr('Score') + ' ' + (f.score > 0 ? '+' : '') + f.score + ' / ' + f.available + (f.asOf ? ' · ' + tr('Source date') + ' ' + String(f.asOf).slice(0, 10) : ''));
 Views.fundamental = () => {
-  if (!INTRINSIC.loaded) ivLoad();
-  const heading = card('Fundamentals', 'Trailing-twelve-month fundamentals (Zyberno, CC BY 4.0) and the Equity Rank Fundamental Strength score for the stocks of the current Top 10 (active filters and ranking). Six rules vote up, neutral or down; hover a verdict for the values. Data are dated and may lag the latest filings; not a forecast.', null, null, 'c12');
-  if (INTRINSIC.error) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Intrinsic-value data is unavailable.'), ' ', INTRINSIC.error)));
-  if (!INTRINSIC.loaded) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading verified source data…'))));
+  fundLoad();
+  const heading = card('Fundamental analysis', 'For the current Top 10: 32 metrics in 7 pillars (profitability, growth, financial health, valuation, cash flow and earnings quality, fundamental momentum, shareholder returns) from Yahoo Finance statistics, Equity Rank and Zyberno. Each metric is ranked against the companies of the same sector, so a utility is compared with utilities and a software company with software companies. Click a stock for every metric.', null, null, 'c12');
+  if (FUND.error && !FUND.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, FUND.error)));
+  if (!FUND.data) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Loading…'))));
   const selected = selection(), top = selected ? ranked(selected).slice(0, 10) : [];
   if (!selected) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('Correct the active filters before viewing the Top 10.'))));
-  if (!top.length) return h('div', null, heading, card(null, null, h('div', { class: 'empty' }, tr('No ranked stocks in the active selection.'))));
-  const sources = INTRINSIC.data?.sources || {};
-  const rows = top.map(stock => ({ stock, f: fundAnalyse(stock, ivLookup(sources.zyberno?.rows, stock.symbol), ivLookup(sources.equityRank?.rows, stock.symbol)) }));
-  const counts = { strong: 0, mixed: 0, weak: 0 }; rows.forEach(r => { if (r.f && counts[r.f.verdict] != null) counts[r.f.verdict]++; });
-  const kpis = h('div', { class: 'kpis' }, kpi('Strong', String(counts.strong), 'of the current Top 10'), kpi('Mixed', String(counts.mixed), 'of the current Top 10'), kpi('Weak', String(counts.weak), 'of the current Top 10'));
-  const cell = (v, fmt) => h('td', { class: 'notr' }, v == null ? '—' : fmt(v));
-  const pct = (v, d = 1) => h('span', { class: plClass(v) }, nf(v * 100, d) + '%');
-  const chips = f => !f ? '—' : h('div', { class: 'fund-chips' }, f.rules.filter(r => r.vote).map(r => h('span', { class: 'fund-chip ' + (r.vote > 0 ? 'up' : 'down') }, (r.vote > 0 ? '+ ' : '− ') + tr(r.key))));
-  const table = h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl fund-tbl' },
-    h('thead', null, h('tr', null, ['Stock', 'Market cap', 'P/E', 'P/S', 'Net margin', 'FCF yield', 'ROE', 'ROIC', 'Strength', 'Verdict', 'Strengths and concerns', 'Summary'].map(x => h('th', null, tr(x))))),
-    h('tbody', null, rows.map(({ stock, f }) => h('tr', null,
-      h('td', null, h('div', { class: 'sym-cell' }, logoEl(stock.symbol, 22), h('div', null, h('b', { class: 'notr' }, stock.symbol), h('div', { class: 'muted small notr' }, stock.company)))),
-      cell(f?.marketCap, fundBig), h('td', { class: 'notr' }, f?.loss ? tr('Loss') : f?.pe == null ? '—' : nf(f.pe, 1)), cell(f?.ps, v => nf(v, 1)),
-      cell(f?.netMargin, v => pct(v)), cell(f?.fcfYield, v => pct(v)), cell(f?.roe, v => h('span', { class: plClass(v) }, nf(v, 1) + '%')), cell(f?.roic, v => h('span', { class: plClass(v) }, nf(v, 1) + '%')),
-      cell(f?.strengthScore, v => nf(v, 0) + (f.strengthGrade ? ' · ' + f.strengthGrade : '')),
-      h('td', null, f ? hoverTip(h('span', { class: 'tech-verdict fund-' + f.verdict }, tr(FUND_LABELS[f.verdict])), () => fundTip(stock.symbol, f)) : '—'),
-      h('td', null, chips(f)), h('td', { class: 'tech-sum' }, tr(fundConclusion(f))))))));
-  return h('div', null, heading, kpis, card(null, null, table, null, 'c12'),
-    h('p', { class: 'muted small mt' }, tr('Sources:'), ' ', ivLink('Zyberno', 'https://zyberno.com/brina-gap/'), ' (CC BY 4.0) · ', ivLink('Equity Rank', 'https://www.equity-rank.com/'), ' · ',
-      tr('Thresholds (up / down): net margin >10% / <0%; ROE >15% / <5%; ROIC >10% / <6%; FCF yield >4% / <0%; P/E ≤25 / >40 or a loss; Fundamental Strength ≥60 / <40. These are baseline choices, not recommendations.'), ' ', tr('Ratios are computed here from the sources\' trailing-twelve-month values; P/E uses the live or report price. Missing data is left blank, never estimated. Not investment advice.')));
+  const symbols = top.map(r => r.symbol);
+  if (FUND.extra && !symbols.includes(FUND.extra)) symbols.push(FUND.extra);
+  const counts = {}; symbols.forEach(s => { const c = fundOf(s)?.category; if (c) counts[c] = (counts[c] || 0) + 1; });
+  const kpis = h('div', { class: 'kpis' }, ...['Strong', 'Good', 'Neutral', 'Weak', 'Very weak'].map(c => kpi(tr(c), String(counts[c] || 0), tr('of the stocks shown'))));
+  const pillars = FUND.data.pillars;
+  const head = h('tr', null, [tr('Stock'), tr('Verdict'), tr('Score'), ...pillars.map(p => tr(p.label)), tr('Forward P/E'), tr('Net margin'), tr('Revenue growth'), tr('Data')].map(x => h('th', null, x)));
+  const body = symbols.map(sym => {
+    const f = fundOf(sym), stock = universe().find(x => x.symbol === sym) || { company: '' }, open = FUND.open === sym;
+    return h('tr', { class: 'company-row' + (open ? ' selected' : ''), onclick: () => { FUND.open = open ? null : sym; App.render(); } },
+      h('td', null, h('div', { class: 'sym-cell' }, logoEl(sym, 22), h('div', null, h('b', { class: 'notr' }, sym), h('div', { class: 'muted small notr' }, stock.company + (top.some(r => r.symbol === sym) ? '' : ' · ' + tr('added')))))),
+      h('td', null, f ? fundChip(f.category) : '—'), h('td', null, f ? techGauge(f.score) : '—'),
+      ...pillars.map(p => h('td', null, f ? techGauge(f.pillars[p.key]) : '—')),
+      h('td', { class: 'notr' }, f ? fundValue('forwardPE', f.metrics.forwardPE) : '—'), h('td', { class: 'notr' }, f ? fundValue('netMargin', f.metrics.netMargin) : '—'),
+      h('td', { class: 'notr ' + plClass(f?.metrics.revenueGrowth) }, f ? fundValue('revenueGrowth', f.metrics.revenueGrowth) : '—'), h('td', { class: 'notr muted' }, f ? nf(f.coverage * 100, 0) + '%' : '—'));
+  });
+  const options = universe().map(r => r.symbol).filter(s => fundOf(s)).sort();
+  const picker = h('div', { class: 'row' }, h('span', { class: 'muted small' }, tr('Analyse another stock:')),
+    selectEl([['', '—'], ...options.map(s => [s, s])], FUND.extra, v => { FUND.extra = v; FUND.open = v || FUND.open; App.render(); }, 'sel csel'),
+    h('span', { class: 'sp' }), h('span', { class: 'muted small notr' }, tr('Computed') + ' ' + new Date(FUND.data.at).toLocaleString(I18N.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
+  const openStock = FUND.open && symbols.includes(FUND.open) ? FUND.open : null;
+  const detail = openStock ? card(openStock + ' · ' + ((universe().find(x => x.symbol === openStock) || {}).company || ''), tr('Every metric with its sector median and rank; click the row again to close.'), fundDetail(openStock), null, 'c12') : null;
+  return h('div', null, heading, kpis, card(null, null, h('div', null, picker, h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl fund-tbl' }, h('thead', null, head), h('tbody', null, body))),
+      openStock ? null : h('p', { class: 'muted small' }, tr('Click a stock for every metric.'))), null, 'c12'), detail,
+    h('p', { class: 'muted small mt' }, tr('Sources:'), ' Yahoo Finance · ', ivLink('Equity Rank', 'https://www.equity-rank.com/'), ' · ', ivLink('Zyberno', 'https://zyberno.com/brina-gap/'), ' (CC BY 4.0). ',
+      tr('Rank in sector = percentile among the companies of the same sector with that metric (−1 worst … +1 best; the whole universe when fewer than five peers have it). Pillar = mean of its ranks; score = mean of the pillars (at least three needed); Strong from +0.35, Good from +0.1, Weak below −0.1, Very weak below −0.35. Dividend metrics count only for companies that pay one. Data can lag the latest filings; not investment advice.')));
 };

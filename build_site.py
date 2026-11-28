@@ -19,6 +19,7 @@ import urllib.request
 import dashboard
 import intrinsic_value
 import technical
+import fundamentals
 
 BASE = Path(__file__).resolve().parent
 SITE = BASE / 'site'
@@ -203,6 +204,16 @@ def build(refresh=False):
                                       'sec': {'status': 'contact_required', 'rows': {}}},
                           'fvcEmbedUrl': intrinsic_value.FVC_EMBED_URL}
     write_json('intrinsic_values.json', intrinsic_data)
+
+    # fundamental analysis for every stock, ranked within its sector; refreshed at most once a day (about 2–3 minutes)
+    fund = previous('fundamentals.json') if refresh else None
+    if refresh and not (fund and fund.get('schema') == fundamentals.SCHEMA and fresh(fund, 24)):
+        try:
+            fund = fundamentals.build(data['allItems'], ((intrinsic_data or {}).get('sources') or {}).get('zyberno', {}).get('rows'))
+        except Exception as exc:
+            print('fundamentals:', exc)
+    if fund:
+        write_json('fundamentals.json', fund)
 
     import top10_history
     write_json('top10_history.json', top10_history.load())

@@ -85,7 +85,7 @@ function ivLoad() {
   INTRINSIC.loading = true;
   runRequest('/api/intrinsic-values').then(data => { INTRINSIC.data = data; INTRINSIC.error = ''; })
     .catch(error => { INTRINSIC.error = error.message || tr('Intrinsic-value data is unavailable.'); })
-    .finally(() => { INTRINSIC.loading = false; INTRINSIC.loaded = true; if (['intrinsic', 'fundamental', 'summary', 'sectors'].includes(App.route())) App.render(); });
+    .finally(() => { INTRINSIC.loading = false; INTRINSIC.loaded = true; if (['intrinsic', 'summary', 'sectors'].includes(App.route())) App.render(); });
 }
 function ivMethodGuide() {
   const a = INTRINSIC.data?.assumptions || { dcf_growth: .05, terminal_growth: .025, discount_rate: .09, years: 5, graham_multiplier: 22.5, ddm_required_return: .09 };
