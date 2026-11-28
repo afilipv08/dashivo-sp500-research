@@ -201,6 +201,48 @@ class AgentsBridgeTests(unittest.TestCase):
         with patch.object(agents_bridge, 'available', return_value=False), patch.object(agents_bridge, 'vibe_available', return_value=False), self.assertRaises(RuntimeError):
             agents_bridge.Queue().start(['AAA'], program='all')
 
+    def test_runs_made_inside_the_vibe_app_are_imported_once_and_only_when_newer(self):
+        import json as _json
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        home = Path(tmp.name)
+        def session(name, prompt, answer, ts, status='success'):
+            d = home / 'sessions' / name
+            d.mkdir(parents=True)
+            lines = [{'type': 'message', 'role': 'user', 'content': prompt}, {'type': 'message', 'role': 'assistant', 'content': answer, 'ts': ts}, {'type': 'end', 'status': status}]
+            (d / 'trace.jsonl').write_text('\n'.join(_json.dumps(x) for x in lines))
+        session('a', 'Research CBRE.US please', '**CBRE** fine.\n**Verdict: Bullish** growth.', 1795700000.0)
+        session('b', 'Research CBRE.US again', '**CBRE** later.\n**Verdict: Bearish** weak.', 1795710000.0)
+        session('c', 'Look at WY', 'unfinished', 1795720000.0, status='error')
+        session('d', 'What about MSFT', '**MSFT** ok.\n**Verdict: Neutral**', 1795720000.0)
+        with patch.object(agents_bridge, 'VIBE_HOME', home), patch.object(agents_bridge, 'STORE', home / 'pc.json'):
+            self.assertEqual(agents_bridge.import_vibe_sessions(['CBRE', 'WY']), ['CBRE'])
+            saved = agents_bridge.read_store()['vibe']
+            self.assertEqual((list(saved), saved['CBRE']['rating'], saved['CBRE']['source']), (['CBRE'], 'Bearish', 'app'))   # newest session wins
+            self.assertEqual(agents_bridge.import_vibe_sessions(['CBRE', 'WY']), [])                                         # already up to date
+        with patch.object(agents_bridge, 'VIBE_HOME', home / 'missing'):
+            self.assertEqual(agents_bridge.import_vibe_sessions(['CBRE']), [])
+
+    def test_open_app_validates_and_reuses_a_running_vibe_app(self):
+        with self.assertRaises(ValueError):
+            agents_bridge.open_app('nope')
+        with self.assertRaises(ValueError):
+            agents_bridge.open_app('vibe', '../x')
+        with patch.object(agents_bridge, 'vibe_available', return_value=True), patch.object(agents_bridge, '_url_up', return_value=True), \
+             patch.object(agents_bridge.subprocess, 'Popen') as popen:
+            self.assertEqual(agents_bridge.open_app('vibe')['url'], agents_bridge.VIBE_UI)
+            popen.assert_not_called()                     # already running: nothing started
+        calls = []
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        with patch.object(agents_bridge, 'TA_HOME', Path(tmp.name)), patch.object(agents_bridge, 'available', return_value=True), \
+             patch.object(agents_bridge, 'python_path', return_value=Path('/x/py')), \
+             patch.object(agents_bridge.subprocess, 'run', side_effect=lambda cmd, **kw: calls.append(cmd) or type('R', (), {'returncode': 0})()):
+            self.assertTrue(agents_bridge.open_app('tradingagents', 'CBRE')['terminal'])
+            launcher = Path(calls[0][-1])
+            self.assertEqual(calls[0][:3], ['open', '-a', 'Terminal'])
+            self.assertIn('-m cli.main --ticker CBRE', launcher.read_text())
+
     def test_queue_runs_symbols_in_order_and_records_failures(self):
         calls = []
 

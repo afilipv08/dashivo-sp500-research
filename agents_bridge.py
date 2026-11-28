@@ -5,7 +5,9 @@ It uses the user's own AI account/settings from TradingAgents' saved CLI prefere
 """
 import json
 import os
+import shlex
 import shutil
+import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import re
@@ -310,6 +312,108 @@ def run_freqtrade(symbol):
     return {**ft_result(stats), 'date': date.today().isoformat(), 'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'html': False}
 
 
+
+# ---------------------------------------------------------------- opening the apps themselves, and reading what was done inside them
+VIBE_HOME = Path(os.environ.get('VIBE_TRADING_HOME') or Path.home() / '.vibe-trading')
+VIBE_DIR = Path(os.environ.get('VIBE_TRADING_DIR') or Path.home() / '5_GitHub_programs' / 'Vibe-Trading')
+VIBE_API = 'http://127.0.0.1:8899'
+VIBE_UI = 'http://localhost:5899'          # Vite listens on localhost only (IPv6 ::1), so 127.0.0.1 does not reach it
+APP_LOG = TA_HOME / 'logs' / 'dashboard_runs' / 'vibe_app.log'
+
+
+def _url_up(url, timeout=2):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.status < 500
+    except Exception:
+        return False
+
+
+def open_app(program, symbol=None):
+    """Start the program's own interface on this PC. Vibe-Trading: its web app (backend + Vite UI), returning the address to open.
+    TradingAgents: a Terminal window with its interactive CLI (it has no web interface), optionally for one ticker."""
+    if symbol is not None and not SYMBOL.match(str(symbol)):
+        raise ValueError('Invalid symbol.')
+    if program == 'vibe':
+        if not vibe_available():
+            raise RuntimeError('Vibe-Trading is not installed at the configured location.')
+        if not (_url_up(VIBE_API + '/health') and _url_up(VIBE_UI)):
+            APP_LOG.parent.mkdir(parents=True, exist_ok=True)
+            log = open(APP_LOG, 'a', encoding='utf-8')
+            subprocess.Popen([str(vibe_binary()), 'dev', '--frontend-dir', str(VIBE_DIR / 'frontend')], cwd=VIBE_DIR, stdout=log, stderr=log,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+            for _ in range(60):                       # the first start compiles the interface; give it up to a minute
+                if _url_up(VIBE_API + '/health') and _url_up(VIBE_UI):
+                    break
+                time.sleep(1)
+            else:
+                raise RuntimeError('Vibe-Trading did not start in time (see its log).')
+        return {'program': 'vibe', 'url': VIBE_UI}
+    if program == 'tradingagents':
+        if not available():
+            raise RuntimeError('TradingAgents is not installed at the configured location.')
+        # a .command file opens in Terminal with `open`, which needs no Automation permission (osascript does)
+        launcher = TA_HOME / 'logs' / 'dashboard_runs' / 'open_tradingagents.command'
+        launcher.parent.mkdir(parents=True, exist_ok=True)
+        launcher.write_text('#!/bin/bash\n' + f"cd {shlex.quote(str(TA_DIR))} && exec {shlex.quote(str(python_path()))} -m cli.main" + (f' --ticker {symbol}' if symbol else '') + '\n',
+                            encoding='utf-8')
+        launcher.chmod(0o755)
+        result = subprocess.run(['open', '-a', 'Terminal', str(launcher)], capture_output=True, text=True, timeout=20)
+        if result.returncode != 0:
+            raise RuntimeError('The Terminal window could not be opened.')
+        return {'program': 'tradingagents', 'terminal': True}
+    raise ValueError('Unknown program.')
+
+
+def import_vibe_sessions(symbols=None):
+    """Bring answers of runs made inside the Vibe-Trading app into the platform file: for each finished session whose first
+    request names a ticker (as 'CBRE' or 'CBRE.US'), its last answer, when newer than what is saved. Returns the symbols updated."""
+    root = VIBE_HOME / 'sessions'
+    if not root.is_dir():
+        return []
+    wanted = set(symbols) if symbols else None
+    found = {}
+    for folder in root.iterdir():
+        trace = folder / 'trace.jsonl'
+        if not trace.is_file():
+            continue
+        first, last, ended, stamp = None, None, False, 0.0
+        try:
+            for line in trace.read_text(encoding='utf-8', errors='replace').splitlines():
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if event.get('type') == 'message' and event.get('role') == 'user' and first is None:
+                    first = str(event.get('content') or '')
+                if event.get('type') == 'message' and event.get('role') == 'assistant' and event.get('content'):
+                    last, stamp = str(event['content']), float(event.get('ts') or 0)
+                if event.get('type') == 'end' and event.get('status') == 'success':
+                    ended = True
+        except OSError:
+            continue
+        if not (first and last and ended):
+            continue
+        tickers = re.findall(r'\b([A-Z]{1,5}(?:[.-][A-Z])?)(?:\.US)?\b', first)
+        symbol = next((t.replace('-', '.') for t in tickers if (wanted is None or t.replace('-', '.') in wanted) and SYMBOL.match(t)), None)
+        if not symbol or (symbol in found and found[symbol][0] >= stamp):
+            continue
+        found[symbol] = (stamp, last)
+    updated = []
+    saved = read_store().get('vibe', {})
+    for symbol, (stamp, text) in found.items():
+        when = datetime.fromtimestamp(stamp) if stamp else datetime.now()
+        old = saved.get(symbol)
+        if old and (old.get('generated') or '') >= when.strftime('%Y-%m-%d %H:%M:%S'):
+            continue
+        parsed = parse_vibe_output('Run dir: app\n\n' + text)
+        save_result('vibe', symbol, {'rating': parsed['verdict'], 'ratingText': parsed['verdict'] or '', 'date': when.date().isoformat(),
+                                     'generated': when.strftime('%Y-%m-%d %H:%M:%S'), 'summary': _short(re.sub(r'\*\*|※', '', text), 700),
+                                     'text': text[:6000], 'html': False, 'source': 'app'})
+        updated.append(symbol)
+    return updated
+
+
 class Queue:
     """Runs the TradingAgents CLI one ticker at a time in a background thread."""
     def __init__(self):
@@ -406,7 +510,15 @@ class Queue:
 
 
 def public(symbols, queue, program='tradingagents'):
-    """Payload for the dashboard: saved short conclusions plus the run state."""
+    """Payload for the dashboard: saved short conclusions plus the run state. For Vibe-Trading, runs made inside its own app
+    are imported first, so they show up here without any extra step."""
     program = program if program in PROGRAMS else 'tradingagents'
-    return {'program': program, 'available': {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}[program](), 'results': latest(symbols, program),
-            'run': queue.snapshot(), 'today': date.today().isoformat(), 'checkedAt': datetime.now().astimezone().isoformat(timespec='seconds')}
+    imported = []
+    if program == 'vibe':
+        try:
+            imported = import_vibe_sessions(symbols)
+        except Exception:
+            imported = []
+    return {'program': program, 'available': {'tradingagents': available, 'vibe': vibe_available, 'freqtrade': ft_available}[program](),
+            'results': latest(symbols, program), 'run': queue.snapshot(), 'imported': imported, 'today': date.today().isoformat(),
+            'checkedAt': datetime.now().astimezone().isoformat(timespec='seconds')}

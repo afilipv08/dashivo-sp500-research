@@ -409,6 +409,18 @@ def make_server(port=8765, lan=False):
                 except Exception:
                     self.reply(502, {'error': 'Live prices are unavailable right now.', **live_prices.cached()})
                 return
+            if self.path == '/api/agents/open':
+                if not self.local():   # opening an app happens on this computer's screen
+                    self.reply(403, {'error': 'The apps can only be opened on the computer that hosts the dashboard.'})
+                    return
+                body = self.body(1024) or {}
+                try:
+                    self.reply(200, agents_bridge.open_app(body.get('program'), body.get('symbol') or None))
+                except ValueError as exc:
+                    self.reply(400, {'error': str(exc)})
+                except RuntimeError as exc:
+                    self.reply(503, {'error': str(exc)})
+                return
             if self.path == '/api/agents/run':
                 if not self.local():   # starting an AI run spends the owner's account and time: this computer only
                     self.reply(403, {'error': 'AI agent runs can only be started on the computer that hosts the dashboard.'})

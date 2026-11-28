@@ -25,6 +25,15 @@ async function agentsRun(symbols) {
   catch (e) { toast(e.message); }
   AGENTS.loading = false; agentsLoad();
 }
+/* open the program's own interface on this PC; what is done there is read back into the table */
+async function agentsOpen(program, symbol) {
+  const win = program === 'vibe' ? window.open('about:blank', '_blank') : null;   // opened at the click, so the browser does not block it
+  toast(program === 'vibe' ? tr('Starting Vibe-Trading… (the first start takes up to a minute)') : tr('Opening TradingAgents in a Terminal window…'));
+  try {
+    const r = await runRequest('/api/agents/open', 'POST', { program, symbol: symbol || null });
+    if (r.url) { if (win) win.location = r.url; else window.open(r.url, '_blank', 'noopener'); }
+  } catch (e) { if (win) win.close(); toast(tr(e.message)); }
+}
 function agentTabs() {
   return h('div', { class: 'seg' }, AGENT_PROGRAMS.map(([key, label]) => h('button', { class: AGENTS.program === key ? 'on' : '', onclick: () => { AGENTS.program = key; AGENTS.data = null; AGENTS.error = ''; clearTimeout(AGENTS.timer); App.render(); } }, label)));
 }
@@ -36,7 +45,10 @@ function agentRow(sym, r, run, day, program) {
     h('td', null, r ? h('span', { class: 'tech-verdict agent-' + (AGENT_RATING[r.rating] || 'mid') }, r.rating ? tr(r.rating) : r.ratingText || '—') : h('span', { class: 'muted' }, run.current === sym ? tr('Running') : tr('No run yet'))),
     h('td', { class: 'notr' }, r ? [r.date, old ? h('div', { class: 'muted small' }, tr('older than the current report')) : null] : '—'),
     h('td', { class: 'tech-sum agents-sum notr' }, r?.summary || '—', detail),
-    h('td', null, r?.html && program === 'tradingagents' && !window.dashboardStatic ? h('a', { class: 'etoro-open', href: '/agents-report/' + encodeURIComponent(r.report), target: '_blank', rel: 'noopener noreferrer' }, tr('Open full report') + ' ↗') : '—'));
+    h('td', null, h('div', { class: 'agent-links' },
+      r?.html && program === 'tradingagents' && !window.dashboardStatic ? h('a', { class: 'etoro-open', href: '/agents-report/' + encodeURIComponent(r.report), target: '_blank', rel: 'noopener noreferrer' }, tr('Open full report') + ' ↗') : null,
+      window.dashboardStatic ? null : h('button', { class: 'btn sm ghost', title: tr('Analyse this stock inside the app; the answer comes back here'), onclick: e => { e.stopPropagation(); agentsOpen(program, sym); } }, tr('In the app')),
+      r?.source === 'app' ? h('small', { class: 'muted' }, tr('from the app')) : null)));
 }
 Views.agents = () => {
   if (!AGENTS.data && !AGENTS.loading && !AGENTS.error) agentsLoad();
@@ -56,7 +68,8 @@ Views.agents = () => {
   const runBtn = btn(need.length ? tr('Run for missing or outdated') + ' (' + need.length + ')' : tr('All conclusions are up to date'), 'play', () => agentsRun(need), 'sm');
   if (run.running || !need.length) runBtn.disabled = true;
   const actions = online ? h('p', { class: 'muted small' }, tr('Runs start only from the dashboard on your PC; this online copy shows the answers saved so far.'))
-    : h('div', { class: 'row' }, runBtn, btn(tr('Run for all ten'), 'play', () => agentsRun(symbols), 'sm ghost'), h('span', { class: 'sp' }), h('span', { class: 'muted small notr' }, tr('Checked') + ' ' + new Date(d.checkedAt).toLocaleTimeString(I18N.locale, { hour: '2-digit', minute: '2-digit' })));
+    : h('div', { class: 'row' }, runBtn, btn(tr('Run for all ten'), 'play', () => agentsRun(symbols), 'sm ghost'),
+      btn(tr('Open') + ' ' + label, 'right', () => agentsOpen(AGENTS.program), 'sm ghost'), btn(tr('Refresh from the app'), 'sched', () => { AGENTS.loading = false; agentsLoad(); }, 'sm ghost'), h('span', { class: 'sp' }), h('span', { class: 'muted small notr' }, tr('Checked') + ' ' + new Date(d.checkedAt).toLocaleTimeString(I18N.locale, { hour: '2-digit', minute: '2-digit' })));
   const table = h('div', { class: 'tbl-wrap' }, h('table', { class: 'sp-tbl agents-tbl' },
     h('thead', null, h('tr', null, ['Stock', 'Rating', 'Analysis date', 'Conclusion', 'Report'].map(x => h('th', null, tr(x))))),
     h('tbody', null, symbols.map(sym => agentRow(sym, results[sym], run, day, AGENTS.program)))));
