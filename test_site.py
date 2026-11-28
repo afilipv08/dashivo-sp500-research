@@ -38,6 +38,8 @@ class SiteTests(unittest.TestCase):
             self.assertIn('Views.sources', html)
             self.assertIn('Views.backtest', html)
             self.assertIn('Views.summary', html)
+            self.assertIn('Views.signals', html)
+            self.assertIn("route === '/api/signals'", html)
             self.assertIn('Views.screener', html)
             self.assertIn('Views.favorites', html)
             self.assertIn('ETORO_SLUG_ALIASES', html)

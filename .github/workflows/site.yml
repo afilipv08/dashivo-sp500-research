@@ -21,7 +21,7 @@ env:
 jobs:
   site:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35   # the daily Signals refresh adds several minutes once a day
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
