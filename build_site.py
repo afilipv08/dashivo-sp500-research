@@ -234,9 +234,11 @@ def build(refresh=False):
     # signals: 27 methods + the funnel score for every stock the Top 10 can show; once a day (several minutes: SEC, Yahoo, FRED, CFTC)
     sig = previous('signals.json') if refresh else None
     targets = set(signals.target_symbols(data, top10_days))
-    if refresh and not (sig and sig.get('schema') == signals.SCHEMA and fresh(sig, 20) and targets <= set(sig.get('symbols') or [])):
+    sec_email = os.environ.get('SEC_CONTACT_EMAIL', '').strip() or None
+    sec_missing = bool(sec_email) and ((sig or {}).get('sources') or {}).get('sec', {}).get('status') != 'ok'   # e-mail added since the last run
+    if refresh and not (sig and sig.get('schema') == signals.SCHEMA and fresh(sig, 20) and targets <= set(sig.get('symbols') or []) and not sec_missing):
         try:
-            sig = signals.build(data, hist, top10_days, previous=sig, contact_email=os.environ.get('SEC_CONTACT_EMAIL', '').strip() or None)
+            sig = signals.build(data, hist, top10_days, previous=sig, contact_email=sec_email)
         except Exception as exc:
             print('signals:', exc)
     if sig:
