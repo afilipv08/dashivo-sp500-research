@@ -197,6 +197,18 @@ The local folder and `origin/main` must always end up identical, by the user's r
 3. Commit and `git push`; `site.yml` rebuilds and publishes the site, and a running local server is restarted.
 Only bot commits touch `Output/` and `Investitii/`, so code changes do not conflict with them.
 
+## SP500 list and Favorites
+
+The SP500 list page (`web/screener.js`) shows every stock of the report, unfiltered until the user filters, independent of the Top 10 filters:
+search, quick presets (undervalued quality, strong momentum, near 52-week low, analyst favourites, big analyst upside), minimum/maximum boxes
+(upside, analysts, Buy+SB share, distance above the 52-week low, gap below fair value), Technical and Fundamental verdict filters, sector and
+consensus chips, a favorites-only switch, sort by any column and CSV export of the filtered rows. All filters combine and are remembered on the
+device. Each row carries the verdicts of the analysis pages and the fair-value gap when their data is loaded.
+
+A ☆ on every row (and in the company detail of Sectors and Favorites) adds the stock to **Favorites**, kept in the browser (`localStorage`,
+with the date and the price when starred, like the demo portfolio on the phone). The Favorites page lists them with every analysis and the
+change since they were starred; a click opens the company detail, ★ removes it, and the menu shows how many there are.
+
 ## Sector analysis
 
 The sector page summarizes the full reported SP500 universe, independent of Top 10 filters. It groups by the report's GICS sector field and compares company count, average live-vs-report price change, analyst Buy+Strong Buy share/consensus, mean analyst-target upside, and mean minimum-target proximity. Live change uses only symbols with a quote and is not a historical-period return; recommendation/target metrics remain report-derived.

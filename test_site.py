@@ -38,6 +38,8 @@ class SiteTests(unittest.TestCase):
             self.assertIn('Views.sources', html)
             self.assertIn('Views.backtest', html)
             self.assertIn('Views.summary', html)
+            self.assertIn('Views.screener', html)
+            self.assertIn('Views.favorites', html)
             self.assertIn('ETORO_SLUG_ALIASES', html)
             self.assertIn('https://www.etoro.com/markets/', html)
             self.assertNotIn('ETORO_API_KEY', html)
