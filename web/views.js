@@ -114,7 +114,7 @@ function companyDetail(r, sector) {
     h('div', { class: 'cd-side' },
       h('div', { class: 'up' }, tr('Analyses')), companyVerdicts(r),
       h('div', { class: 'row cd-actions' },
-        typeof investButton === 'function' ? investButton(r) : null,
+        favStar(r), typeof investButton === 'function' ? investButton(r) : null,
         h('a', { class: 'etoro-open', href: etoroAssetUrl(r.symbol), target: '_blank', rel: 'noopener noreferrer' }, 'eToro ↗'),
         btn('Filter this sector in Top 10 [filtered]', 'filter', () => { UI.f.sectors = [sector]; saveFilters(); App.go('top10'); }, 'sm ghost')),
       h('p', { class: 'muted small' }, tr('Click the company again to close. Hover a verdict for the reason; the pages Technical, Fundamentals and Fair value explain each method.'))));
