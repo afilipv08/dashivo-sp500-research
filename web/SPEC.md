@@ -305,9 +305,9 @@ The Fundamental analysis page (`web/fundamental.js`) shows the current Top 10 (a
 - Other pages (Verdict, Sectors company detail) use this verdict through `fundVerdict()`. The thresholds are baseline choices, unconfirmed;
   sources can lag the latest filings.
 
-## AI agents (programs on the owner's PC)
+## TradingAgents & Vibe-Trading (programs on the owner's PC)
 
-The AI agents page (`web/agents.js`, `agents_bridge.py`) queries programs installed on the user's PC for the current Top 10
+The TradingAgents & Vibe-Trading page (`web/agents.js`, `agents_bridge.py`) queries programs installed on the user's PC for the current Top 10
 and keeps every answer in the platform. It is **local only** by decision: a run spends the owner's AI account and minutes, and
 the results are model output. The bridge never reads or copies keys. A tab per program; one run at a time across programs.
 - **TradingAgents** (default `~/5_GitHub_programs/TradingAgents`, override `TRADINGAGENTS_DIR`; data in `~/.tradingagents`, override
@@ -332,6 +332,13 @@ the results are model output. The bridge never reads or copies keys. A tab per p
   of `SampleStrategy` over the last 90 days (100 USDT per trade, one open trade), then saves trades, win rate, total profit % on the
   stake and deepest drawdown. Stablecoins, symbols that are not plain tickers and pairs missing on Binance are reported as not
   testable. It tests one example strategy on the past; it is not a forecast or advice.
+- **Opening the apps** (`POST /api/agents/open`, loopback only): Vibe-Trading starts its own web app (`vibe-trading dev --frontend-dir
+  <repo>/frontend`, backend 8899, interface `http://localhost:5899` — Vite listens on IPv6 localhost only) unless it already runs, and the
+  page opens it in a tab; TradingAgents, which has only a terminal interface, opens in a Terminal window through a `.command` launcher
+  and `open` (AppleScript needs an Automation permission the user has not granted), optionally for one ticker. Work done inside the apps
+  comes back: TradingAgents reports are read from its reports folder as before, and finished Vibe-Trading sessions
+  (`~/.vibe-trading/sessions/*/trace.jsonl`) whose first request names a ticker are imported with their last answer when newer than the
+  saved one, on every load of the page (and by "Refresh from the app"); imported rows are marked "from the app".
 - **One button**: the Verdict page offers "Run all programs for the Top 10": `POST /api/agents/run` with `program: "all"` runs
   TradingAgents then Vibe-Trading (the installed ones) over the Top 10, one stock at a time, saving every answer in the platform
   file; the page follows the run (every 15 s) and fills in as answers arrive. freqtrade is separate because it works on the crypto Top 10.
