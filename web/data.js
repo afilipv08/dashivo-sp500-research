@@ -84,10 +84,17 @@ function applyLive() {
   }
 }
 /* the Excel columns, plus the two live columns right after the report price when the server is available */
+const RATING_COLS = ['Strong Buy', 'Buy', 'Hold', 'Underperform', 'Sell'];
+/* the five analyst-count columns come first, right after Symbol and Company, as in the Excel overview */
+function ratingsFirst(headers) {
+  const rest = headers.filter(c => !RATING_COLS.includes(c)), have = RATING_COLS.filter(c => headers.includes(c));
+  const at = Math.min(rest.length, 2);
+  return [...rest.slice(0, at), ...have, ...rest.slice(at)];
+}
 function tableHeaders() {
-  if (!window.dashboardRunToken) return DATA.headers;
+  if (!window.dashboardRunToken) return ratingsFirst(DATA.headers);
   applyLive();
-  const out = DATA.headers.filter(c => c !== LIVE_COL && c !== LIVE_PCT_COL), at = out.indexOf('Pret actiune') + 1 || 1;
+  const out = ratingsFirst(DATA.headers.filter(c => c !== LIVE_COL && c !== LIVE_PCT_COL)), at = out.indexOf('Pret actiune') + 1 || 1;
   out.splice(at, 0, LIVE_COL, LIVE_PCT_COL);
   return out;
 }
